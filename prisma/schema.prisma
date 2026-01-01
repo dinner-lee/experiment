@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// PIN 세션 (방)
+model Session {
+  id          String   @id @default(cuid())
+  pinCode     String   @unique
+  createdAt   DateTime @default(now())
+  isActive    Boolean  @default(true)
+  hasAIChat   Boolean  @default(true) // AI 대화 기능 활성화 여부
+  
+  users         User[]
+  conversations Conversation[]
+  userLogs      UserLog[]
+}
+
+// 사용자 (간단하게, 인증 없이)
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  sessionId     String
+  createdAt     DateTime @default(now())
+  
+  session       Session  @relation(fields: [sessionId], references: [id])
+  conversations Conversation[]
+  userLogs      UserLog[]
+  viewLogs      ViewLog[]
+}
+
+// AI 대화
+model Conversation {
+  id          String   @id @default(cuid())
+  userId      String
+  sessionId   String
+  messages    Json     // [{role: 'user', content: '...'}, {role: 'assistant', content: '...'}]
+  summary     String   // AI가 생성한 한 문단 요약
+  title       String   // 한 줄 제목
+  duration    Int      // 초 단위
+  turnCount   Int      // 대화 턴 수
+  createdAt   DateTime @default(now())
+  isShared    Boolean  @default(false)
+  
+  user      User      @relation(fields: [userId], references: [id])
+  session   Session   @relation(fields: [sessionId], references: [id])
+  viewLogs  ViewLog[]
+}
+
+// 사용자 활동 로그
+model UserLog {
+  id              String   @id @default(cuid())
+  userId          String
+  sessionId       String
+  eventType       String   // 'chat_start', 'chat_end', 'share', 'edit_summary'
+  metadata        Json     // 추가 데이터 (수정한 글자수 등)
+  createdAt       DateTime @default(now())
+  
+  user    User    @relation(fields: [userId], references: [id])
+  session Session @relation(fields: [sessionId], references: [id])
+}
+
+// 다른 사용자 대화 로그 열람 기록
+model ViewLog {
+  id              String   @id @default(cuid())
+  viewerId        String   // 열람한 사람
+  conversationId  String   // 열람한 대화
+  duration        Int      // 열람 지속 시간 (초)
+  createdAt       DateTime @default(now())
+  
+  viewer      User        @relation(fields: [viewerId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+}
