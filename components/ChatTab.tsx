@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
-import { UIMessage } from 'ai'
+import { UIMessage, DefaultChatTransport } from 'ai'
 import { useRouter } from 'next/navigation'
 // import { format } from 'date-fns'
 // import { ko } from 'date-fns/locale'
@@ -27,38 +27,31 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
 
   const [isFirstMessage, setIsFirstMessage] = useState(true)
 
+  // DefaultChatTransport를 사용하되, body를 객체로 전달하고 isFirstMessage가 변경될 때마다 재생성
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: '/api/chat',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: {
+      data: {
+        isFirstMessage,
+      },
+    },
+  }), [isFirstMessage])
+
   const { messages, sendMessage, setMessages, status } =
     useChat<UIMessage>({
-      transport: {
-        sendMessages: async (options: any) => {
-          const response = await fetch('/api/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: options.messages,
-              data: {
-                isFirstMessage,
-                ...options.body,
-              },
-            }),
-            signal: options.abortSignal,
-          })
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-          }
-          if (!response.body) {
-            throw new Error('Response body is null')
-          }
-          return response.body
-        },
-      } as any,
+      transport: transport as any,
       messages: [],
       onError: (error: Error) => {
         console.error('Chat error:', error)
       },
       onFinish: async (message) => {
         // 첫 메시지 이후로 플래그 변경
+        // AI 응답이 완료되면 더 이상 첫 메시지가 아님
         if (isFirstMessage) {
+          console.log('First message completed, setting isFirstMessage to false')
           setIsFirstMessage(false)
         }
 
@@ -430,7 +423,15 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
     if (!input.trim() || isLoading) return
     
     const userInput = input.trim()
-    console.log('Submitting message:', userInput)
+    console.log('Submitting message:', userInput, 'isFirstMessage:', isFirstMessage)
+    
+    // 사용자가 실제 메시지를 보내면 더 이상 첫 메시지가 아님
+    // 상태 업데이트를 먼저 수행하여 다음 요청에 반영되도록 함
+    if (isFirstMessage) {
+      console.log('User sent first message, setting isFirstMessage to false')
+      setIsFirstMessage(false)
+    }
+    
     setInput('')
     try {
       sendMessage({

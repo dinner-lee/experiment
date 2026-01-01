@@ -19,28 +19,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Messages are required' }, { status: 400 })
     }
 
-    // 첫 메시지인지 확인: 메시지가 없거나, 비어있거나, "시작" 메시지만 있는 경우
-    const hasValidUserMessage = messages.some((m: any) => {
-      if (m.role !== 'user') return false
+    // 먼저 메시지를 처리하여 content 추출 (UIMessage 형식 지원)
+    const processedMessagesForCheck = messages.map((m: any) => {
+      // parts 배열에서 텍스트 추출 (UIMessage 형식)
       if (m.parts && Array.isArray(m.parts)) {
         const textParts = m.parts.filter((p: any) => p.type === 'text')
         const content = textParts.map((p: any) => p.text || '').join('')
-        return content && content.trim() !== '' && content !== '시작'
+        return {
+          role: m.role,
+          content: content || '',
+        }
       }
+      // content 필드가 직접 있는 경우
+      return {
+        role: m.role,
+        content: m.content || '',
+      }
+    })
+    
+    // 이전 assistant 메시지가 있는지 확인 (대화가 이미 시작되었는지)
+    const hasAssistantMessage = processedMessagesForCheck.some((m: any) => 
+      m.role === 'assistant' && m.content && m.content.trim() !== ''
+    )
+    
+    // 첫 메시지인지 확인: 메시지가 없거나, 비어있거나, "시작" 메시지만 있는 경우
+    // 처리된 메시지를 기반으로 판단
+    const hasValidUserMessage = processedMessagesForCheck.some((m: any) => {
+      if (m.role !== 'user') return false
       const content = m.content || ''
       return content && content.trim() !== '' && content !== '시작'
     })
     
-    const isFirstMessage = !hasValidUserMessage || 
-      data?.isFirstMessage || 
-      messages.length === 0 ||
-      (messages.length === 1 && messages[0]?.role === 'user' && (
-        messages[0]?.content === '시작' || 
-        messages[0]?.content === '' ||
-        (messages[0]?.parts && messages[0].parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('').trim() === '')
+    // 실제 메시지 내용을 기반으로 판단 (더 정확함)
+    // assistant 메시지가 이미 있다면 더 이상 첫 메시지가 아님
+    const isFirstMessageByContent = !hasAssistantMessage && (
+      !hasValidUserMessage || 
+      processedMessagesForCheck.length === 0 ||
+      (processedMessagesForCheck.length === 1 && processedMessagesForCheck[0]?.role === 'user' && (
+        processedMessagesForCheck[0]?.content === '시작' || 
+        processedMessagesForCheck[0]?.content === '' ||
+        processedMessagesForCheck[0]?.content?.trim() === ''
       ))
+    )
     
-    console.log('isFirstMessage:', isFirstMessage, 'messages:', messages, 'hasValidUserMessage:', hasValidUserMessage)
+    // 클라이언트에서 전달된 값과 메시지 내용 기반 판단을 모두 고려
+    // 하지만 메시지 내용 기반 판단을 우선시 (더 정확함)
+    const isFirstMessage = isFirstMessageByContent
+    
+    console.log('isFirstMessage:', isFirstMessage, 'data.isFirstMessage:', data?.isFirstMessage, 'isFirstMessageByContent:', isFirstMessageByContent, 'hasAssistantMessage:', hasAssistantMessage, 'hasValidUserMessage:', hasValidUserMessage, 'messages:', messages.length, 'processedMessagesForCheck:', processedMessagesForCheck.length, 'processedMessagesForCheck content:', processedMessagesForCheck.map((m: any) => ({ role: m.role, content: m.content?.substring(0, 50) })))
 
     const systemPrompt = isFirstMessage
       ? `당신은 소크라테스의 산파술을 사용하는 교사입니다. 
@@ -81,28 +107,16 @@ export async function POST(request: NextRequest) {
       processedMessages = [{ role: 'user' as const, content: '' }]
       console.log('First message - AI should start with the question automatically')
     } else {
-      // 메시지를 처리하여 content 추출
-      processedMessages = messages
-        .map((m: any) => {
-          // parts 배열에서 텍스트 추출 (UIMessage 형식)
-          if (m.parts && Array.isArray(m.parts)) {
-            const textParts = m.parts.filter((p: any) => p.type === 'text')
-            const content = textParts.map((p: any) => p.text || '').join('')
-            return {
-              role: m.role as 'user' | 'assistant',
-              content: content || '',
-            }
-          }
-          // content 필드가 직접 있는 경우
-          return {
-            role: m.role as 'user' | 'assistant',
-            content: m.content || '',
-          }
-        })
+      // 이미 처리된 메시지 사용 (위에서 processedMessagesForCheck로 처리됨)
+      processedMessages = processedMessagesForCheck
         .filter((m: any) => {
           // 시작 메시지와 빈 메시지 제거
           return m.content !== '시작' && m.content.trim() !== ''
         })
+        .map((m: any) => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        }))
       
       console.log('Processed messages:', JSON.stringify(processedMessages, null, 2))
     }
