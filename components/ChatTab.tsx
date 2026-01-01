@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useChat } from '@ai-sdk/react'
+import { UIMessage } from 'ai'
 import { useRouter } from 'next/navigation'
 // import { format } from 'date-fns'
 // import { ko } from 'date-fns/locale'
@@ -26,17 +27,33 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
 
   const [isFirstMessage, setIsFirstMessage] = useState(true)
 
-  const { messages, sendMessage, isLoading, setMessages, status } =
-    useChat({
-      api: '/api/chat',
-      initialMessages: [],
-      body: {
-        isFirstMessage,
-      },
-      onResponse: (response) => {
-        console.log('API response received:', response.status)
-      },
-      onError: (error) => {
+  const { messages, sendMessage, setMessages, status } =
+    useChat<UIMessage>({
+      transport: {
+        sendMessages: async (options: any) => {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: options.messages,
+              data: {
+                isFirstMessage,
+                ...options.body,
+              },
+            }),
+            signal: options.abortSignal,
+          })
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          }
+          if (!response.body) {
+            throw new Error('Response body is null')
+          }
+          return response.body
+        },
+      } as any,
+      messages: [],
+      onError: (error: Error) => {
         console.error('Chat error:', error)
       },
       onFinish: async (message) => {
@@ -95,6 +112,9 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
         }
       },
     })
+
+  // isLoading 대신 status로 확인
+  const isLoading = status === 'streaming' || status === 'submitted'
 
   useEffect(() => {
     console.log('Messages updated:', messages.length, messages)
@@ -381,6 +401,8 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
 
   // 첫 메시지 자동 전송 - 빈 메시지를 보내서 API가 자동으로 질문을 시작하도록 함
   useEffect(() => {
+    // isLoading 대신 status로 확인
+    const isLoading = status === 'streaming' || status === 'submitted'
     if (isFirstMessage && messages.length === 0 && !isLoading && status === 'ready') {
       console.log('Auto-triggering first AI message...', { status, isLoading, messagesLength: messages.length })
       const timer = setTimeout(() => {
@@ -388,7 +410,6 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
         try {
           // 빈 메시지를 보내서 API가 자동으로 첫 질문을 시작하도록 함
           sendMessage({
-            role: 'user',
             text: '',
           })
           console.log('Empty message sent successfully')
@@ -398,7 +419,7 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
       }, 500)
       return () => clearTimeout(timer)
     }
-  }, [isFirstMessage, messages.length, isLoading, sendMessage, status])
+  }, [isFirstMessage, messages.length, status, sendMessage])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value)
@@ -413,7 +434,6 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
     setInput('')
     try {
       sendMessage({
-        role: 'user',
         text: userInput,
       })
       console.log('Message sent:', userInput)

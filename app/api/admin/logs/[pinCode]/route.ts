@@ -147,10 +147,12 @@ export async function GET(
         
         // 각 대화별 데이터 행 생성
         conversations.forEach((conv) => {
-          // 해당 대화의 요약 수정 로그 찾기
-          const editLogs = user.userLogs.filter(
-            (log) => log.eventType === 'edit_summary' && log.conversationId === conv.id
-          )
+          // 해당 대화의 요약 수정 로그 찾기 (metadata에서 conversationId 확인)
+          const editLogs = user.userLogs.filter((log) => {
+            if (log.eventType !== 'edit_summary') return false
+            const metadata = log.metadata as any
+            return metadata?.conversationId === conv.id
+          })
           const editMetadata = editLogs.map((log) => log.metadata as any)
           const charsDeleted = editMetadata.reduce(
             (sum, meta) => sum + (meta.charsDeleted || 0),
