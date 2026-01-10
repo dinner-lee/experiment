@@ -26,6 +26,7 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const [isFirstMessage, setIsFirstMessage] = useState(true)
+  const [showHelpTooltip, setShowHelpTooltip] = useState(false)
 
   // DefaultChatTransport를 사용하되, body를 객체로 전달하고 isFirstMessage가 변경될 때마다 재생성
   const transport = useMemo(() => new DefaultChatTransport({
@@ -414,8 +415,27 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
     }
   }, [isFirstMessage, messages.length, status, sendMessage])
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInput(e.target.value)
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value
+    
+    // 첫 글자 입력 시점에 startTime 설정 (아직 설정되지 않은 경우)
+    if (newValue.length > 0 && !startTime) {
+      const inputStartTime = Date.now()
+      setStartTime(inputStartTime)
+      console.log('Input started, startTime set to:', inputStartTime)
+    }
+    
+    setInput(newValue)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Shift+Enter: 줄바꿈, Enter: 전송
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (input.trim() && !isLoading) {
+        handleSubmit(e as any)
+      }
+    }
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -456,22 +476,38 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
     <div className="flex h-[calc(100vh-200px)] flex-col rounded-lg bg-white shadow-lg dark:bg-zinc-900">
       {showSummary ? (
         <div className="flex flex-1 flex-col p-6">
-          <h2 className="mb-4 text-xl font-bold text-black dark:text-zinc-50">
-            대화 요약 검토 및 수정
-          </h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xl font-bold text-black dark:text-zinc-50">
+              대화 요약 검토 및 수정
+            </h2>
+            <button
+              onClick={() => setShowSummary(false)}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              aria-label="닫기"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
           <textarea
             value={summary}
             onChange={handleSummaryChange}
             className="mb-4 flex-1 rounded-md border border-zinc-300 p-4 text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
             placeholder="요약 내용을 검토하고 수정하세요"
           />
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowSummary(false)}
-              className="rounded-md border border-zinc-300 px-4 py-2 text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              취소
-            </button>
+          <div className="flex justify-end">
             <button
               onClick={handleShare}
               disabled={isSharing}
@@ -483,6 +519,41 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
         </div>
       ) : (
         <>
+          <div className="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-black dark:text-zinc-50">AI와 대화하기</h2>
+              <div className="group relative">
+                <button
+                  type="button"
+                  onClick={() => setShowHelpTooltip(!showHelpTooltip)}
+                  onMouseEnter={() => setShowHelpTooltip(true)}
+                  onMouseLeave={() => setShowHelpTooltip(false)}
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 transition-colors hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                  aria-label="도움말"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </button>
+                {showHelpTooltip && (
+                  <div className="absolute left-0 top-8 z-50 w-64 rounded-md border border-zinc-200 bg-white p-3 text-sm text-zinc-700 shadow-lg dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                    챗봇은 생각을 정교화하는 데 도움이 될 만한 질문을 제시함으로써, 사용자의 아이디어 생성을 돕도록 설계되었습니다.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
           <div className="flex-1 overflow-y-auto p-6">
             {displayMessages.length === 0 && (
               <div className="mb-4 rounded-lg bg-blue-50 p-4 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
@@ -523,18 +594,20 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
             <div ref={messagesEndRef} />
           </div>
           <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">
-            <form onSubmit={handleSubmit} className="flex gap-2">
-              <input
+            <form onSubmit={handleSubmit} className="flex gap-2 items-end">
+              <textarea
                 value={input}
                 onChange={handleInputChange}
-                placeholder="메시지를 입력하세요..."
-                className="flex-1 rounded-md border border-zinc-300 px-4 py-2 text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+                onKeyDown={handleKeyDown}
+                placeholder="메시지를 입력하세요... (Enter: 전송, Shift+Enter: 줄바꿈)"
+                rows={3}
+                className="flex-1 rounded-md border border-zinc-300 px-4 py-2 text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50 resize-none"
                 disabled={isLoading}
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="rounded-md bg-blue-600 px-6 py-2 text-white transition-colors hover:bg-blue-700 disabled:bg-zinc-400"
+                className="rounded-md bg-blue-600 px-6 py-2 text-white transition-colors hover:bg-blue-700 disabled:bg-zinc-400 whitespace-nowrap"
               >
                 전송
               </button>

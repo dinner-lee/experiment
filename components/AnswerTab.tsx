@@ -8,18 +8,65 @@ interface AnswerTabProps {
   userName: string
 }
 
-const QUESTION = '이 과제를 어떻게 해결하는 것이 좋을까요? 잠정적인 해결책을 제안하고, 그 이유를 설명하세요.'
+const DEFAULT_QUESTION = '이 과제를 어떻게 해결하는 것이 좋을까요? 잠정적인 해결책을 제안하고, 그 이유를 설명하세요.'
 
 export default function AnswerTab({ userId, sessionId, userName }: AnswerTabProps) {
   const [answer, setAnswer] = useState('')
   const [title, setTitle] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [startTime, setStartTime] = useState<number | null>(null)
+  const [question, setQuestion] = useState<string>(DEFAULT_QUESTION)
+  const [loadingQuestion, setLoadingQuestion] = useState(true)
 
   useEffect(() => {
-    // 답변 작성 시작 시간 기록
-    setStartTime(Date.now())
-  }, [])
+    // 세션의 질문 가져오기
+    const fetchQuestion = async () => {
+      try {
+        const response = await fetch(`/api/session/${sessionId}/pin`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.question && data.question.trim() !== '') {
+            setQuestion(data.question)
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch question:', error)
+        // 에러 발생 시 기본 질문 사용
+      } finally {
+        setLoadingQuestion(false)
+      }
+    }
+    
+    fetchQuestion()
+  }, [sessionId])
+  
+  // 답변 입력 시작 시점 추적
+  const handleAnswerChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value
+    
+    // 첫 글자 입력 시점에 startTime 설정 (아직 설정되지 않은 경우)
+    if (newValue.length > 0 && !startTime) {
+      const inputStartTime = Date.now()
+      setStartTime(inputStartTime)
+      console.log('Answer input started, startTime set to:', inputStartTime)
+    }
+    
+    setAnswer(newValue)
+  }
+  
+  // 한 줄 요약 입력 시작 시점 추적
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    
+    // 첫 글자 입력 시점에 startTime 설정 (아직 설정되지 않은 경우)
+    if (newValue.length > 0 && !startTime) {
+      const inputStartTime = Date.now()
+      setStartTime(inputStartTime)
+      console.log('Title input started, startTime set to:', inputStartTime)
+    }
+    
+    setTitle(newValue)
+  }
 
   const handleShare = async () => {
     if (!answer.trim()) {
@@ -101,32 +148,36 @@ export default function AnswerTab({ userId, sessionId, userName }: AnswerTabProp
     <div className="flex h-full flex-col">
       <div className="mb-4 rounded-lg bg-white p-6 shadow dark:bg-zinc-900">
         <h2 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">질문</h2>
-        <p className="text-zinc-700 dark:text-zinc-300">{QUESTION}</p>
+        {loadingQuestion ? (
+          <p className="text-zinc-500 dark:text-zinc-400">질문을 불러오는 중...</p>
+        ) : (
+          <p className="text-zinc-700 dark:text-zinc-300">{question}</p>
+        )}
       </div>
 
       <div className="mb-4 flex-1 rounded-lg bg-white p-6 shadow dark:bg-zinc-900">
         <h2 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">답변 작성</h2>
         <div className="mb-4">
           <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            한 줄 요약
+            답변 내용
           </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="답변의 핵심을 한 줄로 요약해주세요"
+          <textarea
+            value={answer}
+            onChange={handleAnswerChange}
+            placeholder="질문에 대한 답변을 작성해주세요"
+            rows={15}
             className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
           />
         </div>
         <div className="mb-4">
           <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            답변 내용
+            한 줄 요약(제목)
           </label>
-          <textarea
-            value={answer}
-            onChange={(e) => setAnswer(e.target.value)}
-            placeholder="질문에 대한 답변을 작성해주세요"
-            rows={15}
+          <input
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            placeholder="답변의 핵심을 한 줄로 요약해주세요"
             className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
           />
         </div>

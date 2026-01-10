@@ -19,6 +19,7 @@ export default function SessionPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [userName, setUserName] = useState<string | null>(null)
   const [hasAIChat, setHasAIChat] = useState<boolean | null>(null)
+  const [showSharedAnswers, setShowSharedAnswers] = useState<boolean>(true)
 
   useEffect(() => {
     const storedUserId = localStorage.getItem('userId')
@@ -37,6 +38,7 @@ export default function SessionPage() {
         if (response.ok) {
           const data = await response.json()
           setHasAIChat(data.hasAIChat !== false) // 기본값은 true
+          setShowSharedAnswers(data.showSharedAnswers !== false) // 기본값은 true
         }
       } catch (error) {
         console.error('Failed to fetch session info:', error)
@@ -143,16 +145,18 @@ export default function SessionPage() {
           >
             질문에 답하기
           </button>
-          <button
-            onClick={() => setActiveTab('answers')}
-            className={`px-4 py-2 font-medium transition-colors ${
-              activeTab === 'answers'
-                ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
-            }`}
-          >
-            답변 공유하기
-          </button>
+          {showSharedAnswers && (
+            <button
+              onClick={() => setActiveTab('answers')}
+              className={`px-4 py-2 font-medium transition-colors ${
+                activeTab === 'answers'
+                  ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'
+              }`}
+            >
+              답변 공유하기
+            </button>
+          )}
         </div>
 
         {/* 탭 컨텐츠 */}

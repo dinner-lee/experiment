@@ -56,8 +56,13 @@ interface UserLog {
 }
 
 export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [password, setPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const [pinCode, setPinCode] = useState('')
   const [hasAIChat, setHasAIChat] = useState(true) // 기본값은 AI 기능 활성화
+  const [question, setQuestion] = useState('') // 질문 내용 (AI 기능 비활성화 시)
+  const [showSharedAnswers, setShowSharedAnswers] = useState(true) // 답변 공유하기 탭 표시 여부 (AI 비활성화 시)
   const [sessions, setSessions] = useState<Session[]>([])
   const [selectedPin, setSelectedPin] = useState<string | null>(null)
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -89,9 +94,36 @@ export default function AdminPage() {
   } | null>(null)
   const [conceptsBySummary, setConceptsBySummary] = useState<string[][]>([])
 
+  // 인증 상태 확인
   useEffect(() => {
-    fetchSessions()
+    const authStatus = localStorage.getItem('adminAuthenticated')
+    if (authStatus === 'true') {
+      setIsAuthenticated(true)
+      fetchSessions()
+    }
   }, [])
+
+  // 비밀번호 확인
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (password === 'lak26') {
+      setIsAuthenticated(true)
+      localStorage.setItem('adminAuthenticated', 'true')
+      setPasswordError('')
+      fetchSessions()
+    } else {
+      setPasswordError('비밀번호가 올바르지 않습니다.')
+      setPassword('')
+    }
+  }
+
+  // 로그아웃
+  const handleLogout = () => {
+    setIsAuthenticated(false)
+    localStorage.removeItem('adminAuthenticated')
+    setPassword('')
+    setPasswordError('')
+  }
 
   const fetchSessions = async () => {
     try {
@@ -150,12 +182,23 @@ export default function AdminPage() {
       return
     }
 
+    // AI 기능이 비활성화된 경우 질문이 필수
+    if (!hasAIChat && !question.trim()) {
+      alert('질문 내용을 입력해주세요')
+      return
+    }
+
     setLoading(true)
     try {
       const response = await fetch('/api/admin/pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pinCode, hasAIChat }),
+        body: JSON.stringify({ 
+          pinCode, 
+          hasAIChat,
+          question: hasAIChat ? null : question.trim(), // AI 기능 비활성화 시에만 질문 전송
+          showSharedAnswers: hasAIChat ? true : showSharedAnswers, // AI 비활성화 시에만 설정값 전송
+        }),
       })
 
       // 응답이 JSON인지 확인
@@ -176,6 +219,8 @@ export default function AdminPage() {
       const data = await response.json()
       setPinCode('')
       setHasAIChat(true) // 기본값으로 리셋
+      setQuestion('') // 질문도 리셋
+      setShowSharedAnswers(true) // 기본값으로 리셋
       fetchSessions()
       alert('PIN이 성공적으로 생성되었습니다.')
     } catch (error: any) {
@@ -427,10 +472,56 @@ export default function AdminPage() {
     }
   }
 
+  // 비밀번호 입력 화면
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
+        <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg dark:bg-zinc-900">
+          <h1 className="mb-6 text-2xl font-bold text-black dark:text-zinc-50">관리자 로그인</h1>
+          <form onSubmit={handlePasswordSubmit}>
+            <div className="mb-4">
+              <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                비밀번호
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setPasswordError('')
+                }}
+                placeholder="비밀번호를 입력하세요"
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+                autoFocus
+              />
+              {passwordError && (
+                <p className="mt-2 text-sm text-red-500 dark:text-red-400">{passwordError}</p>
+              )}
+            </div>
+            <button
+              type="submit"
+              className="w-full rounded-md bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+            >
+              로그인
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black" suppressHydrationWarning>
       <div className="container mx-auto px-4 py-8">
-        <h1 className="mb-6 text-3xl font-bold text-black dark:text-zinc-50">관리자 화면</h1>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-3xl font-bold text-black dark:text-zinc-50">관리자 화면</h1>
+          <button
+            onClick={handleLogout}
+            className="rounded-md border border-zinc-300 px-4 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+          >
+            로그아웃
+          </button>
+        </div>
 
         {/* PIN 관리 */}
         <div className="mb-8 rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
@@ -482,6 +573,41 @@ export default function AdminPage() {
                 </span>
               </label>
             </div>
+            {!hasAIChat && (
+              <>
+                <div className="mt-4">
+                  <label className="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    질문 내용 <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="사용자에게 표시할 질문을 입력하세요"
+                    rows={4}
+                    className="w-full rounded-md border border-zinc-300 px-3 py-2 text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+                  />
+                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    이 질문이 '질문에 답하기' 화면에 표시됩니다.
+                  </p>
+                </div>
+                <div className="mt-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={showSharedAnswers}
+                      onChange={(e) => setShowSharedAnswers(e.target.checked)}
+                      className="h-4 w-4 text-blue-600"
+                    />
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                      답변 공유하기 탭 표시
+                    </span>
+                  </label>
+                  <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    체크 해제 시 사용자에게 '답변 공유하기' 탭이 표시되지 않습니다.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="overflow-x-auto">

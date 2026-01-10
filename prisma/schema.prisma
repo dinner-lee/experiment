@@ -14,6 +14,8 @@ model Session {
   createdAt   DateTime @default(now())
   isActive    Boolean  @default(true)
   hasAIChat   Boolean  @default(true) // AI 대화 기능 활성화 여부
+  question    String?  // 질문에 답하기 기능 사용 시 질문 내용 (AI 기능 비활성화 시)
+  showSharedAnswers Boolean @default(true) // AI 비활성화 시 답변 공유하기 탭 표시 여부
   
   users         User[]
   conversations Conversation[]

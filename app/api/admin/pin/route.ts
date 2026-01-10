@@ -4,10 +4,15 @@ import { prisma } from '@/lib/prisma'
 // PIN 생성
 export async function POST(request: NextRequest) {
   try {
-    const { pinCode, hasAIChat } = await request.json()
+    const { pinCode, hasAIChat, question, showSharedAnswers } = await request.json()
     
     if (!pinCode) {
       return NextResponse.json({ error: 'PIN code is required' }, { status: 400 })
+    }
+
+    // AI 기능이 비활성화된 경우 질문이 필수
+    if (hasAIChat === false && (!question || question.trim() === '')) {
+      return NextResponse.json({ error: '질문 내용을 입력해주세요' }, { status: 400 })
     }
 
     // 데이터베이스 연결 테스트
@@ -18,6 +23,8 @@ export async function POST(request: NextRequest) {
         pinCode,
         isActive: true,
         hasAIChat: hasAIChat !== undefined ? hasAIChat : true, // 기본값은 true
+        question: hasAIChat === false ? (question || null) : null, // AI 기능 비활성화 시에만 질문 저장
+        showSharedAnswers: hasAIChat === false ? (showSharedAnswers !== undefined ? showSharedAnswers : true) : true, // AI 비활성화 시에만 설정값 사용, 기본값은 true
       },
     })
 

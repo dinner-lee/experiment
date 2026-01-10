@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       user = existingUser
     } else {
       // 최대 4명 제한
-      if (session.users.length >= 4) {
+      if (session.users.length >= 6) {
         return NextResponse.json(
           { error: 'Session is full (max 4 users)' },
           { status: 403 }
