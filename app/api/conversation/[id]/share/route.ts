@@ -24,7 +24,7 @@ export async function POST(
         { status: 400 }
       )
     }
-    const { summary, editMetadata, messages, pinCode, duration } = await request.json()
+    const { summary, editMetadata, messages, pinCode, duration, title } = await request.json()
 
     const conversation = await prisma.conversation.findUnique({
       where: { id },
@@ -81,12 +81,15 @@ export async function POST(
 
     if (summary) {
       updateData.summary = summary
+    }
+
+    // 클라이언트에서 title을 보낸 경우 우선 사용
+    if (title && title.trim() !== '') {
+      updateData.title = title.trim()
+    } else if (summary && (!conversation.title || conversation.title.trim() === '')) {
       // 제목이 비어있으면 요약의 첫 부분을 제목으로 사용
-      if (!conversation.title || conversation.title.trim() === '') {
-        // 요약의 첫 50자 정도를 제목으로 사용
-        const titleFromSummary = summary.trim().substring(0, 50)
-        updateData.title = titleFromSummary
-      }
+      const titleFromSummary = summary.trim().substring(0, 50)
+      updateData.title = titleFromSummary
     }
 
     // 클라이언트에서 보낸 messages가 있으면 사용, 없으면 기존 messages 유지

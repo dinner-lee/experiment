@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 // 새 대화 생성
 export async function POST(request: NextRequest) {
   try {
-    const { userId, sessionId, messages, startTime } = await request.json()
+    const { userId, sessionId, messages, startTime, title, summary, duration, turnCount } = await request.json()
 
     if (!userId || !sessionId || !messages) {
       return NextResponse.json(
@@ -15,16 +15,18 @@ export async function POST(request: NextRequest) {
 
     console.log('Creating conversation with messages:', JSON.stringify(messages, null, 2))
     console.log('Messages count:', Array.isArray(messages) ? messages.length : 'not an array')
+    console.log('Title:', title)
+    console.log('Summary:', summary)
 
     const conversation = await prisma.conversation.create({
       data: {
         userId,
         sessionId,
         messages: messages,
-        summary: '',
-        title: '',
-        duration: 0,
-        turnCount: messages.length / 2, // 대략적인 턴 수
+        summary: summary || '',
+        title: title || '',
+        duration: duration || 0,
+        turnCount: turnCount !== undefined ? turnCount : (messages.length / 2), // 대략적인 턴 수
         isShared: false,
       },
     })
