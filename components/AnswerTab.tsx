@@ -151,7 +151,7 @@ export default function AnswerTab({ userId, sessionId, userName }: AnswerTabProp
         {loadingQuestion ? (
           <p className="text-zinc-500 dark:text-zinc-400">질문을 불러오는 중...</p>
         ) : (
-          <p className="text-zinc-700 dark:text-zinc-300">{question}</p>
+          <p className="whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{question}</p>
         )}
       </div>
 

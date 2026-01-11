@@ -182,8 +182,8 @@ export default function AdminPage() {
       return
     }
 
-    // AI 기능이 비활성화된 경우 질문이 필수
-    if (!hasAIChat && !question.trim()) {
+    // AI 기능이 비활성화된 경우 질문이 필수 (공백만 있는 경우도 체크)
+    if (!hasAIChat && (!question || question.trim() === '')) {
       alert('질문 내용을 입력해주세요')
       return
     }
@@ -196,7 +196,7 @@ export default function AdminPage() {
         body: JSON.stringify({ 
           pinCode, 
           hasAIChat,
-          question: hasAIChat ? null : question.trim(), // AI 기능 비활성화 시에만 질문 전송
+          question: hasAIChat ? null : question, // AI 기능 비활성화 시에만 질문 전송 (줄바꿈 보존)
           showSharedAnswers: hasAIChat ? true : showSharedAnswers, // AI 비활성화 시에만 설정값 전송
         }),
       })

@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         pinCode,
         isActive: true,
         hasAIChat: hasAIChat !== undefined ? hasAIChat : true, // 기본값은 true
-        question: hasAIChat === false ? (question || null) : null, // AI 기능 비활성화 시에만 질문 저장
+        question: hasAIChat === false ? (question ? question.trimEnd() : null) : null, // AI 기능 비활성화 시에만 질문 저장 (줄바꿈 보존, 뒤 공백만 제거)
         showSharedAnswers: hasAIChat === false ? (showSharedAnswers !== undefined ? showSharedAnswers : true) : true, // AI 비활성화 시에만 설정값 사용, 기본값은 true
       },
     })
