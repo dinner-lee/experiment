@@ -143,6 +143,12 @@ export async function POST(
     
     console.log('Conversation text for summary (first 500 chars):', conversationText.substring(0, 500))
 
+    // 사용자 메시지만 있는 경우(질문에 답하기 기능)와 AI 대화가 있는 경우를 구분하여 프롬프트 조정
+    const isAnswerOnly = userMessages.length > 0 && validMessages.filter((m) => m.role === 'assistant').length === 0
+    const promptText = isAnswerOnly
+      ? `다음 답변 내용을 한 문단으로 요약해주세요. 사용자가 제시한 과제 해결책과 그 이유를 중심으로 요약하세요. 반드시 "나는"으로 시작하고, "~이다", "~하다" 어조를 사용하세요:\n\n${conversationText}`
+      : `다음 대화 내용을 한 문단으로 요약해주세요. 사용자가 제시한 과제 해결책과 그 이유를 중심으로 요약하세요. 반드시 "나는"으로 시작하고, "~이다", "~하다" 어조를 사용하세요:\n\n${conversationText}`
+
     let completion
     try {
       completion = await openai.chat.completions.create({
@@ -155,7 +161,7 @@ export async function POST(
           },
           {
             role: 'user',
-            content: `다음 대화 내용을 한 문단으로 요약해주세요. 사용자가 제시한 과제 해결책과 그 이유를 중심으로 요약하세요. 반드시 "나는"으로 시작하고, "~이다", "~하다" 어조를 사용하세요:\n\n${conversationText}`,
+            content: promptText,
           },
         ],
         temperature: 0.7,

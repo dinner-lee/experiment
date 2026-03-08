@@ -528,7 +528,7 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
                   onClick={() => setShowHelpTooltip(!showHelpTooltip)}
                   onMouseEnter={() => setShowHelpTooltip(true)}
                   onMouseLeave={() => setShowHelpTooltip(false)}
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-zinc-400 transition-colors hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-300"
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-blue-500 transition-colors hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
                   aria-label="도움말"
                 >
                   <svg
@@ -548,7 +548,7 @@ export default function ChatTab({ userId, sessionId, userName }: ChatTabProps) {
                 </button>
                 {showHelpTooltip && (
                   <div className="absolute left-0 top-8 z-50 w-64 rounded-md border border-zinc-200 bg-white p-3 text-sm text-zinc-700 shadow-lg dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                    챗봇은 생각을 정교화하는 데 도움이 될 만한 질문을 제시함으로써, 사용자의 아이디어 생성을 돕도록 설계되었습니다.
+                    챗봇은 생각을 정교화하는 데 도움이 될 만한 질문을 제시함으로써, 사용자의 아이디어 생성을 돕도록 설계되었습니다. 특정 주제에 대한 아이디어를 충분히 정교화했다면, '다른 주제'라고 입력하면 다른 주제에 대해서 질문합니다.
                   </div>
                 )}
               </div>
