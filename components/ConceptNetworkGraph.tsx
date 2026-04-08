@@ -137,7 +137,7 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
       .attr('stroke', (d: any) => {
         // Darker lines for links in dark mode can be done by a generic class structure
         return d.target.isShared ? '#d4d4d8' : '#e4e4e7' // zinc-300 vs zinc-200
-      }) 
+      })
       .attr('stroke-width', 2)
       .attr('stroke-dasharray', (d: any) => (d.target.isShared ? 'none' : '4,4'))
 
@@ -179,7 +179,7 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
           .attr('stroke', d.color as string)
           .attr('stroke-width', 4)
           .attr('stroke-dasharray', '0')
-        
+
         // Add a subtle drop shadow
         el.style('filter', 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))')
 
@@ -283,10 +283,10 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
         })
 
         node.style('opacity', (o: any) => (connectedNodes.has(o.id) ? 1 : 0.2))
-            .style('transition', 'opacity 0.2s')
+          .style('transition', 'opacity 0.2s')
         link.style('opacity', (l: any) => (l.source.id === d.id || l.target.id === d.id ? 1 : 0.1))
-            .attr('stroke-width', (l: any) => (l.source.id === d.id || l.target.id === d.id ? 3 : 2))
-            .style('transition', 'opacity 0.2s')
+          .attr('stroke-width', (l: any) => (l.source.id === d.id || l.target.id === d.id ? 3 : 2))
+          .style('transition', 'opacity 0.2s')
 
         // Tooltip for shared concepts
         if (d.type === 'concept' && d.isShared) {
@@ -345,7 +345,7 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
   return (
     <div className="relative w-full h-[650px] border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden shadow-inner" ref={containerRef}>
       <svg ref={svgRef} className="w-full h-full" />
-      
+
       {/* Legend Info Overlay */}
       <div className="absolute top-4 left-4 p-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm text-sm space-y-3 pointer-events-none transition-all">
         <p className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
@@ -353,20 +353,20 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
           인터랙티브 맵 가이드
         </p>
         <div className="flex items-center gap-3">
-           <div className="w-4 h-4 rounded-full border-[3px] border-blue-500 bg-white shadow-sm" /> 
-           <span className="text-zinc-700 dark:text-zinc-300 font-medium">학습자 (드래그 가능)</span>
+          <div className="w-4 h-4 rounded-full border-[3px] border-blue-500 bg-white shadow-sm" />
+          <span className="text-zinc-700 dark:text-zinc-300 font-medium">학습자(드래그 가능)</span>
         </div>
         <div className="flex items-center gap-3">
-           <div className="w-10 h-5 rounded-full bg-blue-50 border-2 border-blue-200" /> 
-           <span className="text-zinc-700 dark:text-zinc-300 font-medium">공용 키워드 (가운데 정렬)</span>
+          <div className="w-10 h-5 rounded-full bg-blue-50 border-2 border-blue-200" />
+          <span className="text-zinc-700 dark:text-zinc-300 font-medium">공유된 키워드</span>
         </div>
         <div className="flex items-center gap-3">
-           <div className="w-10 h-5 rounded-full bg-zinc-100 border border-zinc-300" /> 
-           <span className="text-zinc-500 dark:text-zinc-400 font-medium">소수 키워드 (외곽 정렬)</span>
+          <div className="w-10 h-5 rounded-full bg-zinc-100 border border-zinc-300" />
+          <span className="text-zinc-500 dark:text-zinc-400 font-medium">개별 키워드</span>
         </div>
         <p className="text-zinc-400 text-xs pt-2 mt-2 border-t border-zinc-200/60 dark:border-zinc-800/60">
-          마우스 휠 스크롤로 지도 축소/확대가 가능합니다. 
-          <br/>노드 위에 마우스를 올려 연결을 확인하세요.
+          마우스 휠 스크롤로 지도 축소/확대가 가능합니다.
+          <br />노드 위에 마우스를 올려 연결을 확인하세요.
         </p>
       </div>
 
