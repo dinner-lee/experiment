@@ -41,6 +41,52 @@ function splitIntoSentences(text: string): string[] {
   return sentences.filter(s => s.trim().length > 0)
 }
 
+/** 같은 요약(summaryIdx) 안에서 두 개념이 등장하는 문장 인덱스 쌍의 최소 간격 |i-j| (없으면 null) */
+function minSentenceDistanceInSummary(
+  conceptIdxA: number,
+  conceptIdxB: number,
+  summaryIdx: number,
+  conceptToSentences: Record<number, number[]>
+): number | null {
+  const localIndices = (cidx: number) =>
+    (conceptToSentences[cidx] || [])
+      .filter(g => Math.floor(g / 1000) === summaryIdx)
+      .map(g => g % 1000)
+  const la = localIndices(conceptIdxA)
+  const lb = localIndices(conceptIdxB)
+  if (la.length === 0 || lb.length === 0) return null
+  let best: number | null = null
+  for (const a of la) {
+    for (const b of lb) {
+      const d = Math.abs(a - b)
+      if (best === null || d < best) best = d
+    }
+  }
+  return best
+}
+
+/** 두 개념이 공유하는 각 요약에서 최소 문장 거리 (시각화용) */
+function sentenceProximityAcrossSummaries(
+  i: number,
+  j: number,
+  sharedSummaries: number[],
+  conceptToSentences: Record<number, number[]>
+): {
+  minOverall: number | null
+  bySummary: Array<{ summaryIndex: number; minDistance: number }>
+} {
+  const bySummary: Array<{ summaryIndex: number; minDistance: number }> = []
+  let minOverall: number | null = null
+  for (const s of sharedSummaries) {
+    const d = minSentenceDistanceInSummary(i, j, s, conceptToSentences)
+    if (d !== null) {
+      bySummary.push({ summaryIndex: s, minDistance: d })
+      if (minOverall === null || d < minOverall) minOverall = d
+    }
+  }
+  return { minOverall, bySummary }
+}
+
 // 코사인 유사도 계산
 function cosineSimilarity(vecA: number[], vecB: number[]): number {
   if (vecA.length !== vecB.length) {
@@ -404,7 +450,9 @@ export async function POST(request: NextRequest) {
               content: `다음 문단에서 핵심 개념을 정확히 ${CONCEPTS_PER_SUMMARY}개 추출하여 JSON 형식으로 반환하세요. 각 개념은 2-3단어의 명사구로 표현하세요. 응답은 반드시 {"concepts": [...]} 형식이어야 하며, 정확히 ${CONCEPTS_PER_SUMMARY}개의 개념을 포함해야 합니다:\n\n${summary}`,
             },
           ],
-          temperature: 0.3,
+          // temperature 0 + seed: 동일 입력에 대해 개념 추출 결과가 최대한 일관되도록
+          temperature: 0,
+          seed: 42,
           response_format: { type: 'json_object' },
         })
         
@@ -780,6 +828,8 @@ export async function POST(request: NextRequest) {
         summaryIndices?: number[]
         combinedScore?: number // 하이브리드 점수 (의미 유사도 + 공기)
         cooccurrenceCount?: number // 같은 문장에 등장한 횟수
+        minSentenceDistance?: number | null
+        sentenceProximityBySummary?: Array<{ summaryIndex: number; minDistance: number }>
       }>
     } = {
       nodes: [],
@@ -847,6 +897,8 @@ export async function POST(request: NextRequest) {
       summaryIndices: number[] // 각 개념이 속한 모든 요약 인덱스
       sameSummaryIndices?: number[] // 두 개념이 공통으로 속한 요약 인덱스 (참고용)
       needsRefinement?: boolean // LLM 정제가 필요한지 여부
+      minSentenceDistance: number | null
+      sentenceProximityBySummary: Array<{ summaryIndex: number; minDistance: number }>
     }> = []
     
     // 각 노드에 대해 유사도 계산 및 Top-k 선택
@@ -875,6 +927,8 @@ export async function POST(request: NextRequest) {
         combinedScore: number // 의미 유사도 + 공기 점수
         conceptJSummaryIndices: number[]
         sameSummaryIndices: number[]
+        minSentenceDistance: number | null
+        sentenceProximityBySummary: Array<{ summaryIndex: number; minDistance: number }>
       }> = []
       
       for (let j = 0; j < finalConcepts.length; j++) {
@@ -916,6 +970,7 @@ export async function POST(request: NextRequest) {
           
           // 두 개념이 공통으로 속한 요약 인덱스
           const sameSummaryIndices = conceptISummaryIndices.filter(idx => conceptJSummaryIndices.includes(idx))
+          const prox = sentenceProximityAcrossSummaries(i, j, sameSummaryIndices, conceptToSentences)
           
           similarities.push({
             j,
@@ -925,6 +980,8 @@ export async function POST(request: NextRequest) {
             combinedScore,
             conceptJSummaryIndices,
             sameSummaryIndices,
+            minSentenceDistance: prox.minOverall,
+            sentenceProximityBySummary: prox.bySummary,
           })
         } catch (error) {
           console.error(`Error calculating similarity for ${conceptI} - ${finalConcepts[j]}:`, error)
@@ -988,6 +1045,8 @@ export async function POST(request: NextRequest) {
           summaryIndices: edgeSummaryIndices,
           sameSummaryIndices: selected.sameSummaryIndices,
           needsRefinement,
+          minSentenceDistance: selected.minSentenceDistance,
+          sentenceProximityBySummary: selected.sentenceProximityBySummary,
         })
         edgeCount++
       }
@@ -1033,7 +1092,8 @@ export async function POST(request: NextRequest) {
                 content: `다음 두 개념이 의미적으로 관련이 있는지 판단해주세요:\n\n개념1: ${edge.conceptI}\n개념2: ${edge.conceptJ}\n\n응답은 반드시 {"related": true/false, "reason": "이유"} 형식이어야 합니다.`,
               },
             ],
-            temperature: 0.3,
+            temperature: 0,
+            seed: 42,
             response_format: { type: 'json_object' },
           })
           
@@ -1077,6 +1137,8 @@ export async function POST(request: NextRequest) {
         summaryIndices: edge.summaryIndices,
         combinedScore: edge.combinedScore, // 하이브리드 점수
         cooccurrenceCount: edge.cooccurrenceCount, // 공기 횟수
+        minSentenceDistance: edge.minSentenceDistance,
+        sentenceProximityBySummary: edge.sentenceProximityBySummary,
       })
     })
     

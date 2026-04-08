@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { format } from 'date-fns'
+import ConceptNetworkGraph from '@/components/ConceptNetworkGraph'
 
 // Hydration 오류 억제 (브라우저 확장 프로그램으로 인한 오류)
 if (typeof window !== 'undefined') {
@@ -90,7 +91,17 @@ export default function AdminPage() {
   }> | null>(null)
   const [conceptGraph, setConceptGraph] = useState<{
     nodes: Array<{ id: string; label: string; summaryIndices: number[] }>
-    edges: Array<{ source: string; target: string; similarity: number; weight: number; summaryIndices?: number[] }>
+    edges: Array<{
+      source: string
+      target: string
+      similarity: number
+      weight: number
+      summaryIndices?: number[]
+      combinedScore?: number
+      cooccurrenceCount?: number
+      minSentenceDistance?: number | null
+      sentenceProximityBySummary?: Array<{ summaryIndex: number; minDistance: number }>
+    }>
   } | null>(null)
   const [conceptsBySummary, setConceptsBySummary] = useState<string[][]>([])
 
@@ -1089,23 +1100,7 @@ export default function AdminPage() {
             {/* 개념 그래프 */}
             {conceptGraph && conceptGraph.nodes.length > 0 && (
               <div className="border-t border-zinc-200 px-4 py-4 dark:border-zinc-800">
-                <h4 className="mb-4 text-lg font-semibold text-black dark:text-zinc-50">
-                  개념 그래프
-                </h4>
-                <div className="mb-3 rounded-md bg-blue-50 p-3 text-xs dark:bg-blue-900/20">
-                  <p className="mb-1 font-medium text-blue-900 dark:text-blue-200">
-                    개념 그래프 생성 과정:
-                  </p>
-                  <ol className="ml-4 list-decimal space-y-1 text-blue-800 dark:text-blue-300">
-                    <li>문단 → 개념 추출: 각 요약에서 핵심 개념 추출</li>
-                    <li>개념 임베딩: 각 개념을 벡터로 변환</li>
-                    <li>유사도 계산: 개념 간 코사인 유사도 계산</li>
-                    <li>임계값 필터링: 유사도 0.5 이상인 개념 쌍만 선택</li>
-                    <li>개념 그래프 생성: 노드(개념)와 엣지(관계)로 구성</li>
-                  </ol>
-                </div>
-                
-                {/* 개념 목록 */}
+
                 <div className="mb-4">
                   <h5 className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                     추출된 개념 목록
@@ -1140,364 +1135,31 @@ export default function AdminPage() {
                   </div>
                 </div>
                 
-                {/* 그래프 시각화 */}
-                <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-                  <h5 className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    개념 관계 그래프 (하이브리드 점수: 의미 유사도 + 공기)
+                {/* 물리 시뮬레이션 기반 네트워크 콘셉트 맵 */}
+                <div className="mt-8">
+                  <h5 className="mb-4 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    콘셉트 네트워크 맵 (마우스 줌/드래그 지원)
                   </h5>
-                  <div className="overflow-auto" style={{ minHeight: '500px' }}>
-                    <svg
-                      width="100%"
-                      height="500"
-                      viewBox="0 0 800 500"
-                      className="border border-zinc-200 dark:border-zinc-800 bg-white"
-                    >
-                      {/* 간단한 force-directed layout 시뮬레이션 */}
-                      {(() => {
-                        // 사용자별 색상 정의
-                        const userColors = [
-                          '#3b82f6', // 파란색
-                          '#ef4444', // 빨간색
-                          '#10b981', // 초록색
-                          '#f59e0b', // 주황색
-                          '#8b5cf6', // 보라색
-                          '#ec4899', // 핑크색
-                          '#06b6d4', // 청록색
-                          '#f97316', // 오렌지색
-                        ]
-                        
-                        const nodePositions: Record<string, { x: number; y: number }> = {}
-                        const centerX = 400
-                        const centerY = 250
-                        const primaryRadius = 100
-                        const secondaryRadius = 200
-                        
-                        // 선택된 대화 로그 목록 가져오기
-                        const selectedList = conversations.filter(c => selectedConversations.has(c.id))
-                        
-                        // 노드 위치 계산 (Force-directed 레이아웃 시뮬레이션)
-                        // 주요 개념(여러 사용자에 속한 개념)은 중앙에, 보조 개념은 주변에 배치
-                        const primaryNodes = conceptGraph.nodes.filter(n => n.summaryIndices.length > 1)
-                        const secondaryNodes = conceptGraph.nodes.filter(n => n.summaryIndices.length === 1)
-                        
-                        // 주요 개념들을 중앙에 배치
-                        primaryNodes.forEach((node, idx) => {
-                          if (primaryNodes.length === 1) {
-                            nodePositions[node.id] = { x: centerX, y: centerY }
-                          } else if (primaryNodes.length === 2) {
-                            // 2개면 좌우로 배치
-                            nodePositions[node.id] = {
-                              x: centerX + (idx === 0 ? -primaryRadius : primaryRadius),
-                              y: centerY,
-                            }
-                          } else {
-                            const angle = (idx / primaryNodes.length) * 2 * Math.PI
-                            nodePositions[node.id] = {
-                              x: centerX + primaryRadius * Math.cos(angle),
-                              y: centerY + primaryRadius * Math.sin(angle),
-                            }
-                          }
-                        })
-                        
-                        // 보조 개념들을 주변에 배치
-                        secondaryNodes.forEach((node, idx) => {
-                          const angle = (idx / secondaryNodes.length) * 2 * Math.PI
-                          nodePositions[node.id] = {
-                            x: centerX + secondaryRadius * Math.cos(angle),
-                            y: centerY + secondaryRadius * Math.sin(angle),
-                          }
-                        })
-                        
-                        return (
-                          <>
-                            {/* 엣지 그리기 - 연결된 두 개념의 공통 사용자 색상으로 표시 */}
-                            {(() => {
-                              console.log('Rendering edges. Total edges:', conceptGraph.edges.length)
-                              console.log('Sample edges:', conceptGraph.edges.slice(0, 5))
-                              
-                              const allEdgeElements: React.ReactElement[] = []
-                              
-                              // 노드 ID로 노드 정보를 빠르게 찾기 위한 맵 생성
-                              const nodeMap = new Map<string, typeof conceptGraph.nodes[0]>()
-                              conceptGraph.nodes.forEach(node => {
-                                nodeMap.set(node.id, node)
-                              })
-                              
-                              conceptGraph.edges.forEach((edge, edgeIdx) => {
-                                const sourceNode = nodeMap.get(edge.source)
-                                const targetNode = nodeMap.get(edge.target)
-                                
-                                if (!sourceNode || !targetNode) {
-                                  console.log('Missing node for edge:', edge.source, edge.target)
-                                  return
-                                }
-                                
-                                const source = nodePositions[edge.source]
-                                const target = nodePositions[edge.target]
-                                
-                                if (!source || !target) {
-                                  console.log('Missing position for edge:', edge.source, edge.target)
-                                  return
-                                }
-                                
-                                // 두 개념의 공통 사용자 찾기
-                                const sourceUsers = new Set(sourceNode.summaryIndices)
-                                const targetUsers = new Set(targetNode.summaryIndices)
-                                const commonUsers = sourceNode.summaryIndices.filter(userIdx => targetUsers.has(userIdx))
-                                
-                                if (commonUsers.length === 0) {
-                                  // 공통 사용자가 없으면 엣지를 표시하지 않음 (이론적으로는 발생하지 않아야 함)
-                                  console.warn('Edge with no common users:', edge.source, edge.target)
-                                  return
-                                }
-                                
-                                // 엣지 강도에 따라 스타일 결정
-                                // combinedScore가 높으면 강한 관계(두꺼운 선), 낮으면 약한 관계(얇은 선)
-                                const combinedScore = (edge as any).combinedScore || edge.weight || 0
-                                const isStrongEdge = combinedScore >= 0.5 || (edge as any).cooccurrenceCount > 0
-                                const baseStrokeWidth = isStrongEdge ? Math.max(3, combinedScore * 6) : 1.5 // 강한 관계: 3-6px, 약한 관계: 1.5px
-                                const opacity = isStrongEdge ? 0.8 : 0.4
-                                
-                                // 엣지 방향 벡터 계산 (오프셋을 위한 수직 벡터 계산에 사용)
-                                const dx = target.x - source.x
-                                const dy = target.y - source.y
-                                const length = Math.sqrt(dx * dx + dy * dy)
-                                
-                                if (length === 0) return
-                                
-                                // 수직 방향 벡터 (엣지에 수직인 방향)
-                                const perpX = -dy / length
-                                const perpY = dx / length
-                                
-                                // 공통 사용자가 여러 명이면 각 사용자별로 엣지를 약간 오프셋해서 그리기
-                                if (commonUsers.length > 1) {
-                                  const offsetSpacing = 2 // 각 엣지 간 간격
-                                  const totalOffset = (commonUsers.length - 1) * offsetSpacing
-                                  const startOffset = -totalOffset / 2
-                                  
-                                  commonUsers.forEach((userIdx, userOffsetIdx) => {
-                                    const offset = startOffset + userOffsetIdx * offsetSpacing
-                                    const offsetX = perpX * offset
-                                    const offsetY = perpY * offset
-                                    
-                                    const userColor = userColors[userIdx % userColors.length]
-                                    
-                                    allEdgeElements.push(
-                                      <line
-                                        key={`edge-${edgeIdx}-user${userIdx}`}
-                                        x1={source.x + offsetX}
-                                        y1={source.y + offsetY}
-                                        x2={target.x + offsetX}
-                                        y2={target.y + offsetY}
-                                        stroke={userColor}
-                                        strokeWidth={baseStrokeWidth}
-                                        opacity={opacity}
-                                        strokeLinecap="round"
-                                      />
-                                    )
-                                  })
-                                } else {
-                                  // 공통 사용자가 한 명이면 하나의 엣지만 그리기
-                                  const userIdx = commonUsers[0]
-                                  const userColor = userColors[userIdx % userColors.length]
-                                  
-                                  allEdgeElements.push(
-                                    <line
-                                      key={`edge-${edgeIdx}`}
-                                      x1={source.x}
-                                      y1={source.y}
-                                      x2={target.x}
-                                      y2={target.y}
-                                      stroke={userColor}
-                                      strokeWidth={baseStrokeWidth}
-                                      opacity={opacity}
-                                      strokeLinecap="round"
-                                    />
-                                  )
-                                }
-                              })
-                              
-                              console.log('Total edge elements to render:', allEdgeElements.length)
-                              return allEdgeElements
-                            })()}
-                            
-                            {/* 노드 그리기 - 사용자별 색상, 주요 개념은 크게, 보조 개념은 작게 */}
-                            {conceptGraph.nodes.map((node) => {
-                              const pos = nodePositions[node.id]
-                              if (!pos) return null
-                              
-                              const numUsers = node.summaryIndices.length
-                              const isPrimary = numUsers > 1 // 여러 사용자에 속한 개념 = 주요 개념
-                              
-                              // 주요 개념: 큰 노드, 보조 개념: 작은 노드
-                              const nodeRadius = isPrimary ? 25 : 18
-                              const fontWeight = isPrimary ? 'bold' : 'normal'
-                              const fontSize = isPrimary ? 11 : 9
-                              
-                              return (
-                                <g key={node.id}>
-                                  {numUsers > 0 ? (
-                                    numUsers === 1 ? (
-                                      // 단일 사용자: 해당 사용자 색상으로 표시
-                                      <circle
-                                        cx={pos.x}
-                                        cy={pos.y}
-                                        r={nodeRadius}
-                                        fill={userColors[node.summaryIndices[0] % userColors.length]}
-                                        stroke="#fff"
-                                        strokeWidth={isPrimary ? 3 : 2}
-                                      />
-                                    ) : (
-                                      // 여러 사용자: 원을 사용자 수에 따라 나눠서 각 사용자 색상으로 표시
-                                      node.summaryIndices.map((summaryIdx, userIdx) => {
-                                        const startAngle = (userIdx / numUsers) * 2 * Math.PI - Math.PI / 2 // -90도부터 시작
-                                        const endAngle = ((userIdx + 1) / numUsers) * 2 * Math.PI - Math.PI / 2
-                                        
-                                        // SVG path로 원의 일부(섹터) 그리기
-                                        const startX = pos.x + nodeRadius * Math.cos(startAngle)
-                                        const startY = pos.y + nodeRadius * Math.sin(startAngle)
-                                        const endX = pos.x + nodeRadius * Math.cos(endAngle)
-                                        const endY = pos.y + nodeRadius * Math.sin(endAngle)
-                                        
-                                        // 각 섹터의 각도는 항상 360/numUsers도이므로 180도 이하입니다
-                                        // 따라서 largeArcFlag는 항상 0 (작은 호)
-                                        const largeArcFlag = 0
-                                        
-                                        const pathData = [
-                                          `M ${pos.x} ${pos.y}`, // 중심으로 이동
-                                          `L ${startX} ${startY}`, // 시작점으로 선 그리기
-                                          `A ${nodeRadius} ${nodeRadius} 0 ${largeArcFlag} 1 ${endX} ${endY}`, // 호 그리기
-                                          'Z', // 닫기
-                                        ].join(' ')
-                                        
-                                        return (
-                                          <path
-                                            key={`sector-${userIdx}`}
-                                            d={pathData}
-                                            fill={userColors[summaryIdx % userColors.length]}
-                                            stroke="#fff"
-                                            strokeWidth={isPrimary ? 3 : 2}
-                                          />
-                                        )
-                                      })
-                                    )
-                                  ) : (
-                                    // 사용자 없음: 회색
-                                    <circle
-                                      cx={pos.x}
-                                      cy={pos.y}
-                                      r={nodeRadius}
-                                      fill="#9ca3af"
-                                      stroke="#fff"
-                                      strokeWidth={isPrimary ? 3 : 2}
-                                    />
-                                  )}
-                                  
-                                  {/* 노드 라벨 */}
-                                  <text
-                                    x={pos.x}
-                                    y={pos.y + 5}
-                                    textAnchor="middle"
-                                    fontSize={fontSize}
-                                    fill={isPrimary ? '#ffffff' : '#1f2937'}
-                                    fontWeight={fontWeight}
-                                    className="pointer-events-none"
-                                    style={{ textShadow: isPrimary ? '1px 1px 2px rgba(0,0,0,0.5)' : 'none' }}
-                                  >
-                                    {node.label.length > 12 ? node.label.substring(0, 12) + '...' : node.label}
-                                  </text>
-                                </g>
-                              )
-                            })}
-                          </>
-                        )
-                      })()}
-                    </svg>
-                  </div>
-                  
-                  <div className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                    <p>
-                      노드: <span className="font-semibold">{conceptGraph.nodes.length}개</span> 개념 | 
-                      엣지: <span className="font-semibold">{conceptGraph.edges.length}개</span> 관계
-                    </p>
-                    <div className="mt-2 space-y-1">
-                      <p className="font-medium text-zinc-700 dark:text-zinc-300">사용자별 색상:</p>
-                      {(() => {
-                        const selectedList = conversations.filter(c => selectedConversations.has(c.id))
-                        const userColors = [
-                          '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
-                          '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
-                        ]
-                        return selectedList.map((conv, idx) => (
-                          <p key={conv.id} className="ml-2">
-                            <span
-                              className="inline-block w-3 h-3 rounded-full mr-1"
-                              style={{ backgroundColor: userColors[idx % userColors.length] }}
-                            ></span>
-                            {conv.userName || `대화 ${idx + 1}`}
-                          </p>
-                        ))
-                      })()}
-                    </div>
-                    <p className="mt-2">
-                      <span className="font-semibold">노드:</span>
-                    </p>
-                    <ul className="ml-4 mt-1 list-disc space-y-1 text-xs">
-                      <li>
-                        <span className="font-semibold">큰 노드 (굵은 텍스트):</span> 주요 개념 (여러 사용자에 속한 개념) - 사용자별 색상을 섹터로 나눠서 표시
-                      </li>
-                      <li>
-                        <span className="font-semibold">작은 노드 (일반 텍스트):</span> 보조 개념 (단일 사용자에 속한 개념) - 해당 사용자 색상으로 표시
-                      </li>
-                    </ul>
-                    <p className="mt-2">
-                      <span className="font-semibold">엣지:</span>
-                    </p>
-                    <ul className="ml-4 mt-1 list-disc space-y-1 text-xs">
-                      <li>
-                        <span className="font-semibold">두꺼운 선:</span> 강한 관계 (하이브리드 점수 ≥ 0.5 또는 공기 발생) - 사용자별 색상
-                      </li>
-                      <li>
-                        <span className="font-semibold">얇은 선:</span> 약한 관계 (하이브리드 점수 &lt; 0.5) - 사용자별 색상 (투명도 낮음)
-                      </li>
-                    </ul>
-                    <div className="mt-2 rounded-md bg-zinc-50 p-3 dark:bg-zinc-800/50">
-                      <p className="mb-2 text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                        하이브리드 점수 산출 방식:
-                      </p>
-                      <div className="ml-2 space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
-                        <p>
-                          <span className="font-semibold">1. 의미 유사도 (임베딩 기반):</span>
-                        </p>
-                        <ul className="ml-4 mt-1 list-disc space-y-0.5">
-                          <li>두 개념의 임베딩 벡터 간 코사인 유사도 계산</li>
-                          <li>범위: 0 ~ 1 (1에 가까울수록 의미적으로 유사)</li>
-                          <li>모델: Xenova/paraphrase-multilingual-MiniLM-L12-v2</li>
-                        </ul>
-                        <p className="mt-2">
-                          <span className="font-semibold">2. 공기 점수 (Co-occurrence):</span>
-                        </p>
-                        <ul className="ml-4 mt-1 list-disc space-y-0.5">
-                          <li>두 개념이 같은 문장에 등장한 횟수에 비례</li>
-                          <li>각 등장마다 0.1씩 추가</li>
-                          <li>최대 0.3 (3회 이상 등장해도 0.3으로 제한)</li>
-                          <li>예: 같은 문장에 2회 등장 → 0.2점, 5회 등장 → 0.3점</li>
-                        </ul>
-                        <p className="mt-2">
-                          <span className="font-semibold">3. 하이브리드 점수:</span>
-                        </p>
-                        <p className="ml-4 font-mono">
-                          하이브리드 점수 = 의미 유사도 + 공기 점수
-                        </p>
-                        <p className="ml-4 mt-1 text-xs">
-                          예: 의미 유사도 0.4 + 공기 점수 0.2 = 하이브리드 점수 0.6
-                        </p>
-                        <p className="mt-2 text-xs italic text-zinc-500 dark:text-zinc-500">
-                          * 하이브리드 점수는 "의미적으로 유사한" 관계와 "같은 맥락에서 함께 언급되는" 관계를 모두 포착합니다.
-                        </p>
+                  {(() => {
+                    const userColors = [
+                      '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
+                      '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
+                    ]
+                    const selectedList = conversations.filter(c => selectedConversations.has(c.id))
+                    
+                    const networkUsers = selectedList.map((conv, idx) => ({
+                      id: conv.id,
+                      name: conv.userName?.trim() || `대화 ${idx + 1}`,
+                      summaryIndex: idx,
+                      color: userColors[idx % userColors.length]
+                    }))
+
+                    return (
+                      <div className="w-full">
+                        <ConceptNetworkGraph users={networkUsers} concepts={conceptGraph.nodes} />
                       </div>
-                    </div>
-                  </div>
+                    )
+                  })()}
                 </div>
               </div>
             )}
