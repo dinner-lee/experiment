@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { ChevronDown, PenLine, StickyNote } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ChevronDown, PenLine, Quote, StickyNote, X } from 'lucide-react'
 
 interface FloatingMyOpinionProps {
   sessionId: string
@@ -31,6 +31,58 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedNotice, setSavedNotice] = useState(false)
+
+  // 동료 의견에서 드래그로 수집한 문장 조각들
+  const clipsKey = `cache:peerclips:${sessionId}:${userId}`
+  const [clips, setClips] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const raw = sessionStorage.getItem(clipsKey)
+      return raw ? JSON.parse(raw) : []
+    } catch {
+      return []
+    }
+  })
+
+  const saveClips = useCallback(
+    (next: string[]) => {
+      setClips(next)
+      try {
+        sessionStorage.setItem(clipsKey, JSON.stringify(next))
+      } catch {
+        // 캐시 저장 실패는 무시
+      }
+    },
+    [clipsKey]
+  )
+
+  // 동료 의견 영역([data-peer-content])에서 텍스트를 드래그하면 자동으로 수집
+  useEffect(() => {
+    const onMouseUp = () => {
+      setTimeout(() => {
+        const selection = window.getSelection()
+        if (!selection || selection.isCollapsed) return
+        const text = selection.toString().trim()
+        if (!text || text.length < 2 || text.length > 1000) return
+        const anchor = selection.anchorNode
+        const el = anchor instanceof Element ? anchor : anchor?.parentElement
+        if (!el?.closest('[data-peer-content]')) return
+        setClips((prev) => {
+          if (prev.includes(text)) return prev
+          const next = [...prev, text].slice(-20) // 최대 20개 유지
+          try {
+            sessionStorage.setItem(clipsKey, JSON.stringify(next))
+          } catch {
+            // 캐시 저장 실패는 무시
+          }
+          return next
+        })
+        setOpen(true)
+      }, 0)
+    }
+    document.addEventListener('mouseup', onMouseUp)
+    return () => document.removeEventListener('mouseup', onMouseUp)
+  }, [clipsKey])
 
   useEffect(() => {
     let cancelled = false
@@ -157,7 +209,7 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
       </div>
 
       {/* 본문 */}
-      <div className="max-h-[45vh] overflow-y-auto p-4">
+      <div className="max-h-[30vh] overflow-y-auto p-4">
         {editing ? (
           <div className="space-y-2.5">
             <textarea
@@ -198,6 +250,55 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
           <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700">
             {mine.summary}
           </p>
+        )}
+      </div>
+
+      {/* 동료 의견 수집 영역 */}
+      <div className="relative flex items-center justify-between overflow-hidden bg-pine-800/60 px-4 py-2.5 text-white shadow-inner ring-1 ring-inset ring-white/20 backdrop-blur-xl backdrop-saturate-150">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-white/5 to-transparent"
+        />
+        <span className="relative flex items-center gap-2 text-sm font-semibold">
+          <Quote className="h-4 w-4" />동료 의견
+          {clips.length > 0 && (
+            <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium">
+              {clips.length}
+            </span>
+          )}
+        </span>
+        {clips.length > 0 && (
+          <button
+            onClick={() => saveClips([])}
+            className="relative rounded-lg px-2 py-1 text-xs font-medium text-pine-100 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            모두 지우기
+          </button>
+        )}
+      </div>
+      <div className="max-h-[25vh] overflow-y-auto p-4">
+        {clips.length === 0 ? (
+          <p className="text-xs leading-relaxed text-zinc-400">
+            동료의 의견에서 문장을 드래그하면 이곳에 담깁니다.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {clips.map((clip, i) => (
+              <li
+                key={i}
+                className="group flex items-start gap-2 rounded-xl bg-pine-50/80 px-3 py-2 text-sm leading-relaxed text-zinc-700"
+              >
+                <span className="min-w-0 flex-1 whitespace-pre-wrap">{clip}</span>
+                <button
+                  onClick={() => saveClips(clips.filter((_, j) => j !== i))}
+                  className="mt-0.5 shrink-0 rounded p-0.5 text-zinc-400 opacity-0 transition-opacity hover:text-zinc-700 group-hover:opacity-100"
+                  aria-label="삭제"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>

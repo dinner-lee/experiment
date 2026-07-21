@@ -223,7 +223,10 @@ export default function ConversationDetailPage() {
         </div>
 
         {/* 요약 */}
-        <div className="mb-5 rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm">
+        <div
+          className="mb-5 rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm"
+          data-peer-content={!isAuthor ? '' : undefined}
+        >
           <div className="mb-3 flex items-start justify-between">
             <h2 className="text-lg font-bold text-ink">요약</h2>
             {isAuthor && !isEditingSummary && (
@@ -291,7 +294,10 @@ export default function ConversationDetailPage() {
         </div>
 
         {/* 대화 로그 */}
-        <div className="rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm">
+        <div
+          className="rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm"
+          data-peer-content={!isAuthor ? '' : undefined}
+        >
           <h2 className="mb-4 text-lg font-bold text-ink">대화 로그</h2>
           {conversation.messagesHidden ? (
             <div className="flex items-center gap-2.5 rounded-xl bg-zinc-50 px-4 py-4 text-sm text-zinc-500">

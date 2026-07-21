@@ -245,7 +245,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
             아직 공유된 의견이 없습니다. 동료들이 공유하면 여기에 나타납니다.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-100">
+          <ul className="divide-y divide-zinc-100" data-peer-content="">
             {conversations.map((conv) => (
               <li
                 key={conv.id}
@@ -330,7 +330,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
           )}
 
           {analysis && (
-            <div className="space-y-6">
+            <div className="space-y-6" data-peer-content="">
               {/* 공통점 */}
               {(analysis.commonPoints?.length || 0) > 0 && (
                 <div>
