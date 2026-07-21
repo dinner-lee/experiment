@@ -89,7 +89,7 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-pine-700 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-pine-900/30 transition-colors hover:bg-pine-600"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-pine-700/80 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-pine-900/30 ring-1 ring-white/25 backdrop-blur-md transition-colors hover:bg-pine-600/90"
       >
         <StickyNote className="h-4 w-4" />내 의견 보기
       </button>
@@ -97,9 +97,9 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-pine-200 bg-white shadow-2xl shadow-zinc-900/20">
+    <div className="fixed bottom-6 right-6 z-50 flex w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-white/40 bg-white/75 shadow-2xl shadow-zinc-900/20 backdrop-blur-xl">
       {/* 헤더 (글래스 효과) */}
-      <div className="relative flex items-center justify-between overflow-hidden bg-pine-800/85 px-4 py-2.5 text-white shadow-inner ring-1 ring-inset ring-white/20 backdrop-blur-xl">
+      <div className="relative flex items-center justify-between overflow-hidden bg-pine-800/60 px-4 py-2.5 text-white shadow-inner ring-1 ring-inset ring-white/20 backdrop-blur-xl backdrop-saturate-150">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-white/5 to-transparent"
