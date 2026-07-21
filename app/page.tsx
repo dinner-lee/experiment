@@ -77,9 +77,9 @@ export default function Home() {
                   <br />
                   지원 시스템
                 </h1>
-                <p className="mt-3 max-w-xs break-keep text-sm font-light leading-relaxed text-pine-100/90">
-                  AI와의 대화를 통해 나의 생각을 정교화하고, 동료와 생각을 공유하며 협력적으로
-                  문제를 해결해 나가는 과정을 지원하는 학습 플랫폼
+                <p className="mt-3 max-w-xs break-keep text-base font-extralight leading-relaxed text-pine-100/90">
+                  AI와의 대화를 통해 생각을 정교화하고, 동료와 생각을 공유하며 협력적 문제 해결
+                  과정을 지원하는 학습 플랫폼
                 </p>
               </div>
             </div>
