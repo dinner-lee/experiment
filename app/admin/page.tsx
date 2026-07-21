@@ -1141,18 +1141,28 @@ export default function AdminPage() {
                     콘셉트 네트워크 맵 (마우스 줌/드래그 지원)
                   </h5>
                   {(() => {
-                    const userColors = [
-                      '#3b82f6', '#ef4444', '#10b981', '#f59e0b',
-                      '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
-                    ]
+                    const userColors = ['#ef4444', '#eab308', '#22c55e', '#3b82f6'] // 빨강, 노랑, 초록, 파랑
                     const selectedList = conversations.filter(c => selectedConversations.has(c.id))
                     
-                    const networkUsers = selectedList.map((conv, idx) => ({
-                      id: conv.id,
-                      name: conv.userName?.trim() || `대화 ${idx + 1}`,
-                      summaryIndex: idx,
-                      color: userColors[idx % userColors.length]
-                    }))
+                    // 이름을 가나다순으로 정렬하여 컬러 매핑 생성
+                    const sortedNames = Array.from(new Set(selectedList.map(c => c.userName?.trim() || '')))
+                      .filter(Boolean)
+                      .sort((a, b) => a.localeCompare(b, 'ko-KR'))
+                    
+                    const colorMap = new Map<string, string>()
+                    sortedNames.forEach((name, i) => {
+                      colorMap.set(name, userColors[i % userColors.length])
+                    })
+                    
+                    const networkUsers = selectedList.map((conv, idx) => {
+                      const name = conv.userName?.trim() || `대화 ${idx + 1}`
+                      return {
+                        id: conv.id,
+                        name: name,
+                        summaryIndex: idx,
+                        color: colorMap.get(name) || userColors[idx % userColors.length]
+                      }
+                    })
 
                     return (
                       <div className="w-full">

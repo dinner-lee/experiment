@@ -9,14 +9,14 @@ const openai = new OpenAI({
 // 한국어 문장 분리 함수
 function splitIntoSentences(text: string): string[] {
   if (!text || text.trim() === '') return []
-  
+
   // 한국어 문장 종결 부호로 분리 (. ! ?)
   // 정규식: 문장 종결 부호 뒤에 공백이나 줄바꿈이 오는 경우, 또는 텍스트 끝
   const sentenceEndings = /([.!?])(\s+|$)/g
   const sentences: string[] = []
   let lastIndex = 0
   let match
-  
+
   while ((match = sentenceEndings.exec(text)) !== null) {
     const sentence = text.substring(lastIndex, match.index + 1).trim()
     if (sentence.length > 0) {
@@ -24,7 +24,7 @@ function splitIntoSentences(text: string): string[] {
     }
     lastIndex = match.index + match[0].length
   }
-  
+
   // 마지막 문장 처리 (종결 부호가 없는 경우)
   if (lastIndex < text.length) {
     const lastSentence = text.substring(lastIndex).trim()
@@ -32,12 +32,12 @@ function splitIntoSentences(text: string): string[] {
       sentences.push(lastSentence)
     }
   }
-  
+
   // 문장이 하나도 없으면 전체 텍스트를 하나의 문장으로 처리
   if (sentences.length === 0 && text.trim().length > 0) {
     sentences.push(text.trim())
   }
-  
+
   return sentences.filter(s => s.trim().length > 0)
 }
 
@@ -92,20 +92,20 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
   if (vecA.length !== vecB.length) {
     throw new Error('Vectors must have the same length')
   }
-  
+
   let dotProduct = 0
   let normA = 0
   let normB = 0
-  
+
   for (let i = 0; i < vecA.length; i++) {
     dotProduct += vecA[i] * vecB[i]
     normA += vecA[i] * vecA[i]
     normB += vecB[i] * vecB[i]
   }
-  
+
   const denominator = Math.sqrt(normA) * Math.sqrt(normB)
   if (denominator === 0) return 0
-  
+
   return dotProduct / denominator
 }
 
@@ -127,36 +127,36 @@ function bidirectionalMeanMax(
 
 export async function POST(request: NextRequest) {
   try {
-    const { summaries } = await request.json()
-    
+    const { summaries, maxConcepts = 6 } = await request.json()
+
     if (!summaries || !Array.isArray(summaries) || summaries.length < 2) {
       return NextResponse.json(
         { error: '최소 2개 이상의 요약이 필요합니다.' },
         { status: 400 }
       )
     }
-    
+
     // 빈 요약 필터링
     const validSummaries = summaries.filter((s: string) => s && s.trim().length > 0)
-    
+
     if (validSummaries.length < 2) {
       return NextResponse.json(
         { error: '유효한 요약이 최소 2개 이상 필요합니다.' },
         { status: 400 }
       )
     }
-    
+
     console.log('Loading sentence transformer model...')
-    
+
     // Sentence-Transformers 모델 로드 (한국어 지원 모델)
     // 'Xenova/paraphrase-multilingual-MiniLM-L12-v2'는 한국어를 포함한 다국어 모델
     const extractor = await pipeline(
       'feature-extraction',
       'Xenova/paraphrase-multilingual-MiniLM-L12-v2'
     )
-    
+
     console.log('Model loaded. Processing summaries...')
-    
+
     // 각 요약을 문장 단위로 분리
     const sentencesBySummary = validSummaries.map((summary: string) => {
       const sentences = splitIntoSentences(summary)
@@ -164,35 +164,35 @@ export async function POST(request: NextRequest) {
       console.log('Split into sentences:', sentences)
       return sentences
     })
-    
+
     console.log('Sentences split:', sentencesBySummary.map(s => s.length))
     console.log('Total sentences:', sentencesBySummary.reduce((sum, s) => sum + s.length, 0))
-    
+
     // 모든 문장의 임베딩 생성
     const allSentences: string[] = []
     const sentenceToSummaryIndex: number[] = []
-    
+
     sentencesBySummary.forEach((sentences: string[], summaryIndex: number) => {
       sentences.forEach((sentence: string) => {
         allSentences.push(sentence)
         sentenceToSummaryIndex.push(summaryIndex)
       })
     })
-    
+
     console.log('Generating embeddings for', allSentences.length, 'sentences...')
     console.log('Sample sentences:', allSentences.slice(0, 3))
-    
+
     if (allSentences.length === 0) {
       return NextResponse.json(
         { error: '분석할 문장이 없습니다. 요약에 유효한 문장이 포함되어 있는지 확인해주세요.' },
         { status: 400 }
       )
     }
-    
+
     // 배치로 임베딩 생성 (메모리 효율성을 위해)
     const embeddings: number[][] = []
     const batchSize = 32
-    
+
     // 텐서를 배열로 변환하는 헬퍼 함수
     const tensorToArray = (tensor: any): number[] => {
       if (Array.isArray(tensor) && tensor.length > 0) {
@@ -213,21 +213,21 @@ export async function POST(request: NextRequest) {
       }
       return []
     }
-    
+
     for (let i = 0; i < allSentences.length; i += batchSize) {
       const batch = allSentences.slice(i, i + batchSize)
       console.log(`Processing batch ${Math.floor(i / batchSize) + 1}, sentences:`, batch.length)
-      
+
       try {
         const batchEmbeddings = await extractor(batch, { pooling: 'mean', normalize: true })
-        
+
         // 임베딩 형식 확인 및 변환
         console.log('Batch embeddings type:', typeof batchEmbeddings, Array.isArray(batchEmbeddings))
-        
+
         // @xenova/transformers는 텐서 객체를 반환합니다
         // 텐서의 data 속성이나 toArray 메서드를 사용해야 합니다
         let processedEmbeddings: number[][] = []
-        
+
         if (Array.isArray(batchEmbeddings)) {
           // 배열인 경우 - 각 요소가 텐서일 수 있음
           for (const emb of batchEmbeddings) {
@@ -272,24 +272,24 @@ export async function POST(request: NextRequest) {
             }
           }
         }
-        
+
         if (processedEmbeddings.length !== batch.length) {
           console.error(`Embedding count mismatch: expected ${batch.length}, got ${processedEmbeddings.length}`)
         }
-        
+
         embeddings.push(...processedEmbeddings)
-        
+
         console.log(`Batch ${Math.floor(i / batchSize) + 1} processed, embeddings so far:`, embeddings.length)
       } catch (error) {
         console.error('Error processing batch:', error)
         throw error
       }
     }
-    
+
     console.log('Embeddings generated. Total embeddings:', embeddings.length)
     console.log('First embedding sample:', embeddings[0]?.slice(0, 5))
     console.log('Calculating similarity matrix...')
-    
+
     // 각 요약 쌍에 대한 유사도 계산
     const results: Array<{
       summaryIndex1: number
@@ -306,24 +306,24 @@ export async function POST(request: NextRequest) {
       maxValuesItoJ?: number[]
       maxValuesJtoI?: number[]
     }> = []
-    
+
     for (let i = 0; i < validSummaries.length; i++) {
       for (let j = i + 1; j < validSummaries.length; j++) {
         // i번째 요약의 문장 인덱스
         const sentencesI = sentencesBySummary[i]
         const sentencesJ = sentencesBySummary[j]
-        
+
         console.log(`Processing pair ${i}-${j}:`, {
           summaryI: validSummaries[i].substring(0, 50),
           summaryJ: validSummaries[j].substring(0, 50),
           sentencesICount: sentencesI.length,
           sentencesJCount: sentencesJ.length,
         })
-        
+
         // 각 요약의 문장 임베딩 추출
         const embeddingsI: number[][] = []
         const embeddingsJ: number[][] = []
-        
+
         allSentences.forEach((_, idx) => {
           if (sentenceToSummaryIndex[idx] === i) {
             if (embeddings[idx] && Array.isArray(embeddings[idx])) {
@@ -335,9 +335,9 @@ export async function POST(request: NextRequest) {
             }
           }
         })
-        
+
         console.log(`Embeddings extracted: I=${embeddingsI.length}, J=${embeddingsJ.length}`)
-        
+
         if (embeddingsI.length === 0 || embeddingsJ.length === 0) {
           console.warn(`Skipping pair ${i}-${j}: empty embeddings`, {
             embeddingsILength: embeddingsI.length,
@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
           })
           continue
         }
-        
+
         // 유사도 행렬 계산 (I -> J)
         const matrixItoJ: number[][] = []
         for (const embI of embeddingsI) {
@@ -375,7 +375,7 @@ export async function POST(request: NextRequest) {
           }
           matrixItoJ.push(row)
         }
-        
+
         // 유사도 행렬 계산 (J -> I)
         const matrixJtoI: number[][] = []
         for (const embJ of embeddingsJ) {
@@ -390,22 +390,22 @@ export async function POST(request: NextRequest) {
           }
           matrixJtoI.push(row)
         }
-        
+
         console.log(`Similarity matrices: I->J: ${matrixItoJ.length}x${matrixItoJ[0]?.length || 0}, J->I: ${matrixJtoI.length}x${matrixJtoI[0]?.length || 0}`)
-        
+
         // 양방향 MeanMax 평균 계산
         const meanMaxItoJ = meanMax(matrixItoJ)
         const meanMaxJtoI = meanMax(matrixJtoI)
         const similarity = bidirectionalMeanMax(matrixItoJ, matrixJtoI)
-        
+
         // 각 행의 최대값 계산 (A→B MeanMax 설명용)
         const maxValuesItoJ = matrixItoJ.map(row => Math.max(...row))
         // 각 행의 최대값 계산 (B→A MeanMax 설명용)
         const maxValuesJtoI = matrixJtoI.map(row => Math.max(...row))
-        
+
         console.log(`Final similarity for pair ${i}-${j}:`, similarity)
         console.log(`MeanMax I->J: ${meanMaxItoJ}, MeanMax J->I: ${meanMaxJtoI}`)
-        
+
         // 유사도 행렬은 I->J 방향 사용 (더 직관적)
         results.push({
           summaryIndex1: i,
@@ -424,18 +424,18 @@ export async function POST(request: NextRequest) {
         })
       }
     }
-    
+
     console.log('Similarity analysis completed.')
     console.log('Results:', results)
     console.log('Results count:', results.length)
-    
+
     // 개념 그래프 생성
     console.log('Extracting concepts from summaries...')
     const conceptsBySummary: string[][] = []
-    
-    // 각 사용자별로 추출할 개념 개수 (고정)
-    const CONCEPTS_PER_SUMMARY = 10 // 각 요약에서 추출할 개념 개수
-    
+
+    // 추출할 최대 개념 개수 (클라이언트 요청 또는 기본값)
+    const MAX_CONCEPTS = maxConcepts
+
     for (const summary of validSummaries) {
       try {
         const completion = await openai.chat.completions.create({
@@ -443,19 +443,34 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: 'system',
-              content: `당신은 텍스트에서 핵심 개념을 추출하는 전문가입니다. 주어진 문단에서 중요한 개념(명사구, 핵심 키워드)을 정확히 ${CONCEPTS_PER_SUMMARY}개 추출하여 JSON 객체로 반환하세요. 응답 형식: {"concepts": ["개념1", "개념2", ..., "개념${CONCEPTS_PER_SUMMARY}"]}. 각 개념은 2-3 단어로 구성된 명사구여야 합니다. 반드시 정확히 ${CONCEPTS_PER_SUMMARY}개의 개념을 추출해야 합니다.`,
+              content: `당신은 교육용 텍스트 분석 전문가입니다. 학습자의 글에서 구체적인 '수행 과업'이나 '개선 제안'을 찾아내어 핵심 개념으로 추출합니다.
+    
+    [작업 규칙]
+    1. 반드시 JSON 형식 {"concepts": ["개념1", ...]}으로만 응답하세요.
+    2. 내용의 길이나 아이디어 개수에 맞추어 1개에서 최대 ${MAX_CONCEPTS}개 사이로 유연하게 추출하세요.
+    3. 각 개념은 '대상 + 행동'이 포함된 2~4단어의 명사구(예: '창가 1인석 배치', '입퇴장로 분리')로 작성하세요.
+    4. 텍스트에 명시된 구체적인 변경 사항이나 유지 사항을 우선적으로 추출하세요.`
             },
             {
               role: 'user',
-              content: `다음 문단에서 핵심 개념을 정확히 ${CONCEPTS_PER_SUMMARY}개 추출하여 JSON 형식으로 반환하세요. 각 개념은 2-3단어의 명사구로 표현하세요. 응답은 반드시 {"concepts": [...]} 형식이어야 하며, 정확히 ${CONCEPTS_PER_SUMMARY}개의 개념을 포함해야 합니다:\n\n${summary}`,
-            },
+              content: `다음 입력 텍스트에서 학습자의 아이디어를 분석하여 핵심 개념을 최대 ${MAX_CONCEPTS}개까지 추출하세요.
+
+    [입력 텍스트]:
+    ${summary}
+
+    [출력 예시]:
+    입력: "식권 발권기는 식당 바깥에 배치하여 대기 상황을 개선해야 한다."
+    출력: "식권 발권기 외부 이동", "대기 상황 개선"
+    
+    위 규칙과 예시를 참고하여 {"concepts": [...]} 형식으로 출력하세요.`
+            }
           ],
           // temperature 0 + seed: 동일 입력에 대해 개념 추출 결과가 최대한 일관되도록
           temperature: 0,
           seed: 42,
           response_format: { type: 'json_object' },
         })
-        
+
         const responseText = completion.choices[0]?.message?.content || '{}'
         let parsed: any = {}
         try {
@@ -465,25 +480,22 @@ export async function POST(request: NextRequest) {
           conceptsBySummary.push([])
           continue
         }
-        
+
         const concepts = parsed.concepts || parsed.concept || []
-        
+
         if (Array.isArray(concepts)) {
           const filteredConcepts = concepts
             .filter((c: any) => c && typeof c === 'string' && c.trim().length > 0)
             .map((c: string) => c.trim())
-          
-          // 정확히 CONCEPTS_PER_SUMMARY개가 되도록 조정
+
+          // 최대 MAX_CONCEPTS 개를 넘지 않도록 조정
           let finalConcepts: string[] = []
-          if (filteredConcepts.length >= CONCEPTS_PER_SUMMARY) {
-            // 더 많이 추출된 경우 앞에서 CONCEPTS_PER_SUMMARY개만 선택
-            finalConcepts = filteredConcepts.slice(0, CONCEPTS_PER_SUMMARY)
+          if (filteredConcepts.length > MAX_CONCEPTS) {
+            finalConcepts = filteredConcepts.slice(0, MAX_CONCEPTS)
           } else {
-            // 부족한 경우 그대로 사용 (LLM이 요청한 개수만큼 추출하지 못한 경우)
             finalConcepts = filteredConcepts
-            console.warn(`Summary ${conceptsBySummary.length + 1}: Only ${filteredConcepts.length} concepts extracted, expected ${CONCEPTS_PER_SUMMARY}`)
           }
-          
+
           conceptsBySummary.push(finalConcepts)
           console.log(`Extracted ${finalConcepts.length} concepts from summary ${conceptsBySummary.length}:`, finalConcepts.slice(0, 5))
         } else {
@@ -495,11 +507,11 @@ export async function POST(request: NextRequest) {
         conceptsBySummary.push([])
       }
     }
-    
+
     // 모든 개념 수집
     const allConcepts: string[] = []
     const conceptToSummaryIndex: number[] = []
-    
+
     conceptsBySummary.forEach((concepts, summaryIndex) => {
       concepts.forEach((concept) => {
         if (!allConcepts.includes(concept)) {
@@ -508,28 +520,28 @@ export async function POST(request: NextRequest) {
         conceptToSummaryIndex.push(summaryIndex)
       })
     })
-    
+
     console.log('Total unique concepts:', allConcepts.length)
     console.log('All concepts:', allConcepts)
     console.log('Concepts by summary:', conceptsBySummary)
-    
+
     // 개념 임베딩 생성 (문장 임베딩과 동일한 방식으로 처리)
     let conceptEmbeddings: number[][] = []
     if (allConcepts.length > 0) {
       console.log('Generating embeddings for concepts...')
       const batchSize = 32
-      
+
       for (let i = 0; i < allConcepts.length; i += batchSize) {
         const batch = allConcepts.slice(i, i + batchSize)
         console.log(`Processing concept batch ${Math.floor(i / batchSize) + 1}, concepts:`, batch.length)
-        
+
         try {
           const batchEmbeddings = await extractor(batch, { pooling: 'mean', normalize: true })
-          
+
           console.log('Concept batch embeddings type:', typeof batchEmbeddings, Array.isArray(batchEmbeddings))
-          
+
           let processedEmbeddings: number[][] = []
-          
+
           if (Array.isArray(batchEmbeddings)) {
             // 배열인 경우 - 각 요소가 텐서일 수 있음
             for (const emb of batchEmbeddings) {
@@ -574,7 +586,7 @@ export async function POST(request: NextRequest) {
               }
             }
           }
-          
+
           if (processedEmbeddings.length !== batch.length) {
             console.error(`Concept embedding count mismatch: expected ${batch.length}, got ${processedEmbeddings.length}`)
             // 부족한 임베딩을 빈 배열로 채우기
@@ -582,7 +594,7 @@ export async function POST(request: NextRequest) {
               processedEmbeddings.push([])
             }
           }
-          
+
           conceptEmbeddings.push(...processedEmbeddings)
           console.log(`Concept batch ${Math.floor(i / batchSize) + 1} processed, embeddings so far:`, conceptEmbeddings.length)
         } catch (error) {
@@ -593,7 +605,7 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      
+
       console.log('Total concept embeddings generated:', conceptEmbeddings.length)
       console.log('Expected concepts:', allConcepts.length)
       console.log('Sample embedding length:', conceptEmbeddings[0]?.length)
@@ -605,41 +617,41 @@ export async function POST(request: NextRequest) {
     } else {
       console.warn('No concepts to generate embeddings for!')
     }
-    
+
     // 임베딩이 없는 개념이 있는지 확인
     const missingEmbeddings = allConcepts.map((c, i) => ({
       concept: c,
       index: i,
       hasEmbedding: !!conceptEmbeddings[i] && conceptEmbeddings[i].length > 0,
     })).filter(x => !x.hasEmbedding)
-    
+
     if (missingEmbeddings.length > 0) {
       console.warn('Concepts missing embeddings:', missingEmbeddings.length, missingEmbeddings)
     }
-    
+
     // 개념 통합: 유사도가 임계값 이상인 개념들을 하나로 통합
     // 사용자 간 개념 통합 임계값 (다른 summary에 속한 개념들)
     const CROSS_USER_SIMILARITY_THRESHOLD = 0.85
     // 사용자 내 개념 통합 임계값 (같은 summary에 속한 개념들, null이면 통합하지 않음)
-    const SAME_USER_SIMILARITY_THRESHOLD: number | null = 0.75 // null로 설정하면 사용자 내 개념은 통합하지 않음
-    
+    const SAME_USER_SIMILARITY_THRESHOLD: number | null = null // null로 설정하면 사용자 내 개념은 통합하지 않음
+
     console.log('Starting concept merging with thresholds:')
     console.log('  - Cross-user (different summaries):', CROSS_USER_SIMILARITY_THRESHOLD)
     console.log('  - Same-user (same summary):', SAME_USER_SIMILARITY_THRESHOLD || 'disabled')
-    
+
     // Union-Find 자료구조로 유사한 개념들을 그룹화
     const parent: number[] = []
     for (let i = 0; i < allConcepts.length; i++) {
       parent[i] = i
     }
-    
+
     const find = (x: number): number => {
       if (parent[x] !== x) {
         parent[x] = find(parent[x]) // 경로 압축
       }
       return parent[x]
     }
-    
+
     const union = (x: number, y: number) => {
       const rootX = find(x)
       const rootY = find(y)
@@ -647,7 +659,7 @@ export async function POST(request: NextRequest) {
         parent[rootY] = rootX
       }
     }
-    
+
     // 각 개념이 속한 summary 인덱스 미리 계산
     const conceptToSummaryIndices: Map<number, number[]> = new Map()
     allConcepts.forEach((concept, conceptIdx) => {
@@ -659,29 +671,29 @@ export async function POST(request: NextRequest) {
       })
       conceptToSummaryIndices.set(conceptIdx, summaryIndices)
     })
-    
+
     // 모든 개념 쌍에 대해 유사도 계산 및 통합
     // 단, 같은 summary에 속한 개념들은 통합하지 않음 (사용자 간 개념만 통합)
     let mergeCount = 0
     let skippedSameSummary = 0
-    
+
     for (let i = 0; i < allConcepts.length; i++) {
       if (!conceptEmbeddings[i] || conceptEmbeddings[i].length === 0) continue
-      
+
       const summaryIndicesI = conceptToSummaryIndices.get(i) || []
-      
+
       for (let j = i + 1; j < allConcepts.length; j++) {
         if (!conceptEmbeddings[j] || conceptEmbeddings[j].length === 0) continue
-        
+
         const summaryIndicesJ = conceptToSummaryIndices.get(j) || []
-        
+
         // 같은 summary에 속한 개념인지 확인
         const commonSummaries = summaryIndicesI.filter(idx => summaryIndicesJ.includes(idx))
         const isSameSummary = commonSummaries.length > 0
-        
+
         try {
           const similarity = cosineSimilarity(conceptEmbeddings[i], conceptEmbeddings[j])
-          
+
           // 사용자 내 개념 통합 (같은 summary에 속한 경우)
           if (isSameSummary) {
             if (SAME_USER_SIMILARITY_THRESHOLD !== null && similarity >= SAME_USER_SIMILARITY_THRESHOLD) {
@@ -691,7 +703,7 @@ export async function POST(request: NextRequest) {
             } else {
               skippedSameSummary++
             }
-          } 
+          }
           // 사용자 간 개념 통합 (다른 summary에 속한 경우)
           else {
             if (similarity >= CROSS_USER_SIMILARITY_THRESHOLD) {
@@ -705,15 +717,15 @@ export async function POST(request: NextRequest) {
         }
       }
     }
-    
+
     console.log(`Concept merging completed. ${mergeCount} pairs merged, ${skippedSameSummary} pairs skipped (same summary).`)
-    
+
     console.log(`Concept merging completed. ${mergeCount} pairs merged.`)
-    
+
     // 각 그룹의 루트 개념 찾기 및 통합된 개념 목록 생성
     const conceptGroups: Map<number, number[]> = new Map() // root -> [concept indices]
     const conceptToGroup: Map<number, number> = new Map() // concept index -> merged concept index
-    
+
     for (let i = 0; i < allConcepts.length; i++) {
       const root = find(i)
       if (!conceptGroups.has(root)) {
@@ -721,42 +733,42 @@ export async function POST(request: NextRequest) {
       }
       conceptGroups.get(root)!.push(i)
     }
-    
+
     // 통합된 개념 생성: 각 그룹에서 가장 짧은 개념 이름을 대표 이름으로 사용
     const mergedConcepts: string[] = []
     const mergedConceptEmbeddings: number[][] = []
     const mergedConceptToOriginal: Map<number, number[]> = new Map() // merged index -> [original indices]
     const originalToMerged: Map<number, number> = new Map() // original index -> merged index
-    
+
     let mergedIndex = 0
     for (const [root, group] of conceptGroups.entries()) {
       // 그룹 내 개념들 중 가장 짧은 것을 대표로 선택 (또는 가장 자주 등장하는 것)
       const groupConcepts = group.map(idx => allConcepts[idx])
       const representativeConcept = groupConcepts.reduce((a, b) => a.length <= b.length ? a : b)
-      
+
       mergedConcepts.push(representativeConcept)
-      
+
       // 대표 개념의 임베딩 사용 (또는 그룹 내 모든 임베딩의 평균)
       const representativeIndex = group.find(idx => allConcepts[idx] === representativeConcept) || group[0]
       mergedConceptEmbeddings.push(conceptEmbeddings[representativeIndex] || [])
-      
+
       // 매핑 저장
       mergedConceptToOriginal.set(mergedIndex, group)
       group.forEach(originalIdx => {
         originalToMerged.set(originalIdx, mergedIndex)
       })
-      
+
       mergedIndex++
     }
-    
+
     console.log(`Concepts merged: ${allConcepts.length} -> ${mergedConcepts.length}`)
     console.log(`Merged concepts:`, mergedConcepts)
-    
+
     // 통합된 개념의 summaryIndices 계산 (원본 개념들의 summaryIndices를 합침)
     // 모든 원본 개념이 있던 summary에 통합된 개념을 추가
     const mergedConceptsBySummary: string[][] = conceptsBySummary.map(() => [])
     const mergedSummaryIndices: number[][] = mergedConcepts.map(() => [])
-    
+
     // 원본 개념이 있던 모든 summary에 통합된 개념 추가
     conceptsBySummary.forEach((concepts, summaryIdx) => {
       concepts.forEach((concept) => {
@@ -782,12 +794,12 @@ export async function POST(request: NextRequest) {
         }
       })
     })
-    
+
     // 통합된 개념 그룹의 모든 원본 개념이 있던 summary에 통합된 개념 추가
     // 예: '기후 위기'와 '기후 변화'가 통합되면, 둘 다 있던 summary에 '기후 위기' 추가
     for (const [mergedIndex, originalIndices] of mergedConceptToOriginal.entries()) {
       const mergedConcept = mergedConcepts[mergedIndex]
-      
+
       // 이 그룹에 속한 모든 원본 개념이 있던 summary 인덱스 수집
       const allSummaryIndicesForGroup = new Set<number>()
       originalIndices.forEach(originalIdx => {
@@ -797,7 +809,7 @@ export async function POST(request: NextRequest) {
           }
         })
       })
-      
+
       // 모든 summary에 통합된 개념 추가
       allSummaryIndicesForGroup.forEach(summaryIdx => {
         if (!mergedConceptsBySummary[summaryIdx].includes(mergedConcept)) {
@@ -808,19 +820,19 @@ export async function POST(request: NextRequest) {
         }
       })
     }
-    
+
     console.log('Merged concepts by summary:', mergedConceptsBySummary)
     console.log('Original concepts by summary:', conceptsBySummary)
-    
+
     // 통합된 개념으로 그래프 생성
     const finalConcepts = mergedConcepts
     const finalConceptEmbeddings = mergedConceptEmbeddings
     const finalConceptsBySummary = mergedConceptsBySummary
-    
+
     // 개념 간 유사도 계산 및 그래프 생성
     const conceptGraph: {
       nodes: Array<{ id: string; label: string; summaryIndices: number[] }>
-      edges: Array<{ 
+      edges: Array<{
         source: string
         target: string
         similarity: number
@@ -835,20 +847,20 @@ export async function POST(request: NextRequest) {
       nodes: [],
       edges: [],
     }
-    
+
     // 노드 생성 (통합된 개념 사용)
     finalConcepts.forEach((concept, idx) => {
       const summaryIndices = finalConceptsBySummary
         .map((concepts, sIdx) => (concepts.includes(concept) ? sIdx : -1))
         .filter(idx => idx !== -1)
-      
+
       conceptGraph.nodes.push({
         id: `concept_${idx}`,
         label: concept,
         summaryIndices,
       })
     })
-    
+
     // 1단계: 하이브리드 방식으로 엣지 생성 (의미 유사도 + 공기 + LLM 검증)
     // 각 노드마다 가장 가까운 k개 노드와 연결
     const k = 3 // 각 노드마다 상위 k개 노드와 연결 (k=1~3부터 시작)
@@ -856,20 +868,20 @@ export async function POST(request: NextRequest) {
     let edgeCount = 0
     let skippedCount = 0
     let noEmbeddingCount = 0
-    
+
     console.log('Starting edge creation with Hybrid method (Top-k + Co-occurrence, k=' + k + ')...')
     console.log('Total concepts (after merging):', finalConcepts.length)
     console.log('Total concept embeddings:', finalConceptEmbeddings.length)
-    
+
     // 각 개념이 어떤 문장에 등장하는지 매핑 (공기 점수 계산용)
     // concept -> [sentence indices where concept appears]
     const conceptToSentences: Record<number, number[]> = {}
-    
+
     // 각 요약의 문장들을 순회하며 개념이 포함된 문장 인덱스 기록
     sentencesBySummary.forEach((sentences, summaryIdx) => {
       sentences.forEach((sentence, sentenceIdx) => {
         const globalSentenceIdx = summaryIdx * 1000 + sentenceIdx // 요약 인덱스와 문장 인덱스를 조합
-        
+
         finalConcepts.forEach((concept, conceptIdx) => {
           // 문장에 개념이 포함되어 있는지 확인 (대소문자 무시)
           if (sentence.toLowerCase().includes(concept.toLowerCase())) {
@@ -881,9 +893,9 @@ export async function POST(request: NextRequest) {
         })
       })
     })
-    
+
     console.log('Co-occurrence mapping created:', Object.keys(conceptToSentences).length, 'concepts mapped to sentences')
-    
+
     // 임베딩 기반 엣지 생성
     const initialEdges: Array<{
       source: string
@@ -900,16 +912,16 @@ export async function POST(request: NextRequest) {
       minSentenceDistance: number | null
       sentenceProximityBySummary: Array<{ summaryIndex: number; minDistance: number }>
     }> = []
-    
+
     // 각 노드에 대해 유사도 계산 및 Top-k 선택
     for (let i = 0; i < finalConcepts.length; i++) {
       if (!finalConceptEmbeddings[i] || finalConceptEmbeddings[i].length === 0) {
         noEmbeddingCount++
         continue
       }
-      
+
       const conceptI = finalConcepts[i]
-      
+
       // 각 개념이 속한 요약 인덱스 찾기
       const conceptISummaryIndices: number[] = []
       finalConceptsBySummary.forEach((concepts, sIdx) => {
@@ -917,7 +929,7 @@ export async function POST(request: NextRequest) {
           conceptISummaryIndices.push(sIdx)
         }
       })
-      
+
       // 모든 다른 노드와의 하이브리드 점수 계산 (의미 유사도 + 공기)
       const similarities: Array<{
         j: number
@@ -930,36 +942,36 @@ export async function POST(request: NextRequest) {
         minSentenceDistance: number | null
         sentenceProximityBySummary: Array<{ summaryIndex: number; minDistance: number }>
       }> = []
-      
+
       for (let j = 0; j < finalConcepts.length; j++) {
         if (i === j) continue // 자기 자신은 제외
-        
+
         if (!finalConceptEmbeddings[j] || finalConceptEmbeddings[j].length === 0) {
           continue
         }
-        
+
         try {
           // 1. 의미 유사도 계산 (임베딩 기반)
           const similarity = cosineSimilarity(finalConceptEmbeddings[i], finalConceptEmbeddings[j])
-          
+
           if (isNaN(similarity) || !isFinite(similarity) || similarity <= 0) {
             continue
           }
-          
+
           const conceptJ = finalConcepts[j]
-          
+
           // 2. 공기(co-occurrence) 점수 계산
           // 두 개념이 같은 문장에 등장하는지 확인
           const sentencesI = conceptToSentences[i] || []
           const sentencesJ = conceptToSentences[j] || []
           const cooccurrenceCount = sentencesI.filter(sIdx => sentencesJ.includes(sIdx)).length
-          
+
           // 공기 점수: 같은 문장에 등장한 횟수에 비례 (최대 cooccurrenceBonus)
           const cooccurrenceScore = Math.min(cooccurrenceBonus, cooccurrenceCount * 0.1)
-          
+
           // 3. 하이브리드 점수 = 의미 유사도 + 공기 점수
           const combinedScore = similarity + cooccurrenceScore
-          
+
           // 각 개념이 속한 요약 인덱스 찾기
           const conceptJSummaryIndices: number[] = []
           finalConceptsBySummary.forEach((concepts, sIdx) => {
@@ -967,11 +979,11 @@ export async function POST(request: NextRequest) {
               conceptJSummaryIndices.push(sIdx)
             }
           })
-          
+
           // 두 개념이 공통으로 속한 요약 인덱스
           const sameSummaryIndices = conceptISummaryIndices.filter(idx => conceptJSummaryIndices.includes(idx))
           const prox = sentenceProximityAcrossSummaries(i, j, sameSummaryIndices, conceptToSentences)
-          
+
           similarities.push({
             j,
             conceptJ,
@@ -988,7 +1000,7 @@ export async function POST(request: NextRequest) {
           skippedCount++
         }
       }
-      
+
       if (i === 0) {
         console.log(`Node 0 (${conceptI}): Found ${similarities.length} potential edges`)
         if (similarities.length > 0) {
@@ -1000,7 +1012,7 @@ export async function POST(request: NextRequest) {
           })))
         }
       }
-      
+
       // 하이브리드 점수가 높은 순으로 정렬
       // 같은 요약에 속한 개념들은 추가 보너스 (같은 요약에 속한 경우 보너스 추가)
       similarities.sort((a, b) => {
@@ -1008,31 +1020,31 @@ export async function POST(request: NextRequest) {
         const bBonus = b.sameSummaryIndices.length > 0 ? 0.2 : 0
         return (b.combinedScore + bBonus) - (a.combinedScore + aBonus)
       })
-      
+
       // Top-k 선택 (같은 요약에 속한 개념들은 항상 포함)
       const sameSummaryNodes = similarities.filter(s => s.sameSummaryIndices.length > 0)
       const otherNodes = similarities.filter(s => s.sameSummaryIndices.length === 0)
-      
+
       // 같은 요약에 속한 개념들은 모두 포함
       const selectedNodes = [...sameSummaryNodes]
-      
+
       // 나머지 노드 중에서 Top-k 선택
       const remainingSlots = Math.max(0, k - selectedNodes.length)
       selectedNodes.push(...otherNodes.slice(0, remainingSlots))
-      
+
       if (i === 0) {
         console.log(`Node 0: Selected ${selectedNodes.length} edges (${sameSummaryNodes.length} same summary, ${selectedNodes.length - sameSummaryNodes.length} top-k)`)
       }
-      
+
       // 엣지 생성
       for (const selected of selectedNodes) {
         const edgeSummaryIndices = Array.from(new Set([...conceptISummaryIndices, ...selected.conceptJSummaryIndices]))
         // LLM 정제 필요 여부: 같은 요약에 속하지 않고, 유사도가 중간 범위인 경우
         const needsRefinement = selected.sameSummaryIndices.length === 0 && selected.similarity >= 0.2 && selected.similarity < 0.5
-        
+
         // 엣지 가중치: 하이브리드 점수를 사용하되, 최소값 보장
         const edgeWeight = Math.max(0.1, selected.combinedScore)
-        
+
         initialEdges.push({
           source: `concept_${i}`,
           target: `concept_${selected.j}`,
@@ -1050,13 +1062,13 @@ export async function POST(request: NextRequest) {
         })
         edgeCount++
       }
-      
+
       if (i < 3) {
         const cooccurrenceEdges = selectedNodes.filter(n => n.cooccurrenceCount > 0).length
         console.log(`Node ${i} (${conceptI}): Selected ${selectedNodes.length} edges (${sameSummaryNodes.length} same summary, ${cooccurrenceEdges} co-occurrence, ${selectedNodes.length - sameSummaryNodes.length} top-k)`)
       }
     }
-    
+
     const cooccurrenceEdges = initialEdges.filter(e => e.cooccurrenceCount > 0).length
     console.log('Initial edges created (Hybrid method - Top-k + Co-occurrence):', {
       totalEdges: initialEdges.length,
@@ -1068,14 +1080,14 @@ export async function POST(request: NextRequest) {
       averageEdgesPerNode: (initialEdges.length / finalConcepts.length).toFixed(2),
       totalConceptPairs: (finalConcepts.length * (finalConcepts.length - 1)) / 2,
     })
-    
+
     // 2단계: 필요할 때만 LLM으로 관계 정제
     // 같은 요약에 속한 개념들은 이미 관계가 명확하므로 정제 불필요
     // 유사도가 중간 범위인 엣지들만 선택적으로 정제
     const edgesToRefine = initialEdges.filter(e => e.needsRefinement).slice(0, 20) // 최대 20개만 정제 (비용 절감)
-    
+
     console.log(`Refining ${edgesToRefine.length} edges with LLM...`)
-    
+
     const refinedEdges = await Promise.all(
       edgesToRefine.map(async (edge) => {
         try {
@@ -1096,17 +1108,17 @@ export async function POST(request: NextRequest) {
             seed: 42,
             response_format: { type: 'json_object' },
           })
-          
+
           const responseText = completion.choices[0]?.message?.content || '{}'
           const parsed = JSON.parse(responseText)
           const isRelated = parsed.related === true
-          
+
           if (!isRelated) {
             // LLM이 관련이 없다고 판단하면 엣지 제거
             console.log(`Edge removed by LLM: ${edge.conceptI} - ${edge.conceptJ} (reason: ${parsed.reason || 'N/A'})`)
             return null
           }
-          
+
           // 관련이 있다고 판단되면 가중치를 약간 증가 (LLM 검증됨)
           return {
             ...edge,
@@ -1120,13 +1132,13 @@ export async function POST(request: NextRequest) {
         }
       })
     )
-    
+
     // 정제된 엣지와 정제되지 않은 엣지 결합
     const finalEdges = [
       ...initialEdges.filter(e => !e.needsRefinement), // 정제 불필요한 엣지들
       ...refinedEdges.filter(e => e !== null), // 정제된 엣지들 (null 제거)
     ]
-    
+
     // 최종 엣지를 그래프에 추가
     finalEdges.forEach(edge => {
       conceptGraph.edges.push({
@@ -1141,7 +1153,7 @@ export async function POST(request: NextRequest) {
         sentenceProximityBySummary: edge.sentenceProximityBySummary,
       })
     })
-    
+
     console.log('Concept graph created:', {
       nodes: conceptGraph.nodes.length,
       edges: conceptGraph.edges.length,
@@ -1157,7 +1169,7 @@ export async function POST(request: NextRequest) {
       edgesWithSummaryIndices: conceptGraph.edges.filter(e => e.summaryIndices && e.summaryIndices.length > 0).length,
       edgesWithoutSummaryIndices: conceptGraph.edges.filter(e => !e.summaryIndices || e.summaryIndices.length === 0).length,
     })
-    
+
     // 디버깅을 위한 상세 정보 추가
     const debugInfo = {
       originalConcepts: allConcepts.length,
@@ -1180,9 +1192,9 @@ export async function POST(request: NextRequest) {
         summaryIndices: e.summaryIndices,
       })),
     }
-    
+
     console.log('API: Returning concept graph with debug info:', debugInfo)
-    
+
     return NextResponse.json({
       results,
       totalSummaries: validSummaries.length,

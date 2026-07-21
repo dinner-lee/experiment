@@ -40,6 +40,7 @@ interface ConceptNetworkGraphProps {
 export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const htmlLayerRef = useRef<HTMLDivElement>(null)
   const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; content: React.ReactNode }>({
     visible: false,
     x: 0,
@@ -56,6 +57,9 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
 
     const svg = d3.select(svgRef.current)
     svg.selectAll('*').remove() // Clear previous render
+
+    const htmlLayer = d3.select(htmlLayerRef.current)
+    htmlLayer.selectAll('*').remove() // Clear HTML overlay
 
     // Graph Data Preparation
     const nodes: ForceNode[] = []
@@ -116,7 +120,13 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
       )
       .force('charge', d3.forceManyBody().strength(-200))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collide', d3.forceCollide().radius((d: any) => d.radius + 20).iterations(4))
+      .force('collide', d3.forceCollide().radius((d: any) => {
+        if (d.type === 'user') return d.radius + 10
+        // 개념 노드는 글자 수에 비례한 직사각형이므로 너비의 절반을 충돌 반경으로 설정
+        const estimatedWidth = d.label.length * 12 + 20
+        const rectWidthHalf = Math.max(70, estimatedWidth) / 2
+        return rectWidthHalf + 4 // 겹침 방지용 최소 패딩
+      }).iterations(6))
 
     // Container group
     const g = svg.append('g')
@@ -124,6 +134,8 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
     // Optional Zooming
     const zoom = d3.zoom<SVGSVGElement, unknown>().on('zoom', (event) => {
       g.attr('transform', event.transform)
+      // 정확한 위치 동기화를 위해 HTML 레이어에도 동일한 변환 적용
+      htmlLayer.style('transform', `translate(${event.transform.x}px, ${event.transform.y}px) scale(${event.transform.k})`)
     })
     svg.call(zoom as any)
 
@@ -183,15 +195,7 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
         // Add a subtle drop shadow
         el.style('filter', 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))')
 
-        // User Avatar Initial/Name in center
-        const chars = d.label.substring(0, 5) || 'U'
-        el.append('text')
-          .attr('text-anchor', 'middle')
-          .attr('dy', '0.35em')
-          .attr('fill', '#18181b') // zinc-900
-          .style('font-weight', 'bold')
-          .style('font-size', chars.length > 2 ? '12px' : '14px')
-          .text(chars)
+        // Text will be rendered in HTML layer for Native Translation
       } else {
         // Concept Nodes Style
         const padding = 20
@@ -243,14 +247,7 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
               .attr('stroke', '#93c5fd')
               .attr('stroke-width', 2)
           }
-
-          el.append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dy', '0.33em')
-            .attr('fill', '#1e40af') // blue-800
-            .style('font-weight', '600')
-            .style('font-size', '13px')
-            .text(d.label)
+          // Text will be rendered in HTML layer
         } else {
           el.append('rect')
             .attr('x', -rectWidth / 2)
@@ -261,16 +258,52 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
             .attr('fill', '#f4f4f5') // zinc-100
             .attr('stroke', '#d4d4d8') // zinc-300
             .attr('stroke-width', 1.5)
-
-          el.append('text')
-            .attr('text-anchor', 'middle')
-            .attr('dy', '0.35em')
-            .attr('fill', '#52525b') // zinc-600
-            .style('font-size', '12px')
-            .text(d.label)
+          
+          // Text will be rendered in HTML layer
         }
       }
     })
+
+    // HTML Labels Overlay (Rendered as normal HTML for 100% Translation compat)
+    const labelNodes = htmlLayer
+      .selectAll('.node-label')
+      .data(nodes)
+      .enter()
+      .append('div')
+      .attr('class', 'node-label')
+      .style('position', 'absolute')
+      .style('left', '0px')
+      .style('top', '0px')
+      .style('transform', 'translate(-50%, -50%)')
+      .style('display', 'flex')
+      .style('align-items', 'center')
+      .style('justify-content', 'center')
+      .style('pointer-events', 'none')
+      .style('white-space', 'nowrap')
+      .each(function (d) {
+        const el = d3.select(this)
+        if (d.type === 'user') {
+          const chars = d.label.substring(0, 5) || 'U'
+          el.style('width', `${d.radius * 2}px`)
+            .style('height', `${d.radius * 2}px`)
+            .style('color', '#18181b')
+            .style('font-weight', 'bold')
+            .style('font-size', chars.length > 2 ? '12px' : '14px')
+            .text(chars)
+        } else {
+          const padding = 20
+          const estimatedWidth = d.label.length * 12 + padding
+          const rectWidth = Math.max(70, estimatedWidth)
+          const rectHeight = d.radius * 2
+
+          el.style('width', `${rectWidth}px`)
+            .style('height', `${rectHeight}px`)
+            .style('font-size', d.isShared ? '13px' : '12px')
+            .style('font-weight', d.isShared ? '600' : 'normal')
+            .style('color', d.isShared ? '#1e40af' : '#52525b')
+            .text(d.label)
+        }
+      })
 
     // Interactions
     node
@@ -332,10 +365,18 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
         .attr('y2', (d: any) => d.target.y)
 
       node.attr('transform', (d: any) => `translate(${d.x},${d.y})`)
+      
+      // Update HTML labels explicitly
+      labelNodes.style('left', (d: any) => `${d.x}px`).style('top', (d: any) => `${d.y}px`)
     })
 
-    // Auto fit into bounds on load (optional visual pop-in)
-    d3.select(svgRef.current).select('g').attr('transform', 'scale(0.9) translate(50, 50)')
+    // 정확한 초기 화면 동기화: SVG와 HTML Layer 양쪽에 동일한 초기 Transform 적용
+    const initialTransform = d3.zoomIdentity.translate(45, 45).scale(0.9)
+    g.attr('transform', initialTransform.toString())
+    htmlLayer.style('transform', `translate(${initialTransform.x}px, ${initialTransform.y}px) scale(${initialTransform.k})`)
+    
+    // Zoom 이벤트 객체에 초기 스케일을 학습시켜 이후 드래그 시 튀는 현상 방지
+    svg.call(zoom.transform as any, initialTransform)
 
     return () => {
       simulation.stop()
@@ -343,8 +384,13 @@ export default function ConceptNetworkGraph({ users, concepts }: ConceptNetworkG
   }, [users, concepts])
 
   return (
-    <div className="relative w-full h-[650px] border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden shadow-inner" ref={containerRef}>
-      <svg ref={svgRef} className="w-full h-full" />
+    <div className="relative w-full h-[650px] border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden shadow-inner flex" ref={containerRef}>
+      <svg ref={svgRef} className="w-full h-full absolute inset-0 z-0" />
+      
+      {/* HTML Layer for Texts (Guarantees Google Translate works seamlessly) */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden z-10 font-sans">
+        <div ref={htmlLayerRef} className="w-full h-full origin-top-left" style={{ transformOrigin: '0 0' }} />
+      </div>
 
       {/* Legend Info Overlay */}
       <div className="absolute top-4 left-4 p-4 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm text-sm space-y-3 pointer-events-none transition-all">
