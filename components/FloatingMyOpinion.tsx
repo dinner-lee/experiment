@@ -24,21 +24,32 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
   const [savedNotice, setSavedNotice] = useState(false)
 
   useEffect(() => {
+    let cancelled = false
     const fetchMine = async () => {
       try {
         const response = await fetch(`/api/conversations/${sessionId}?viewerId=${userId}`)
-        if (!response.ok) return
+        if (!response.ok || cancelled) return
         const data = await response.json()
         const my = (data.conversations || []).find((c: any) => c.isMine)
         if (my) {
-          setMine({ id: my.id, summary: my.summary })
-          setDraft(my.summary)
+          setMine((prev) => {
+            // 편집 중에는 외부 갱신으로 초안을 덮어쓰지 않음
+            if (!prev || prev.summary !== my.summary) {
+              setDraft((d) => (prev && d !== prev.summary ? d : my.summary))
+            }
+            return { id: my.id, summary: my.summary }
+          })
         }
       } catch (error) {
         console.error('Failed to fetch my opinion:', error)
       }
     }
     fetchMine()
+    const interval = setInterval(fetchMine, 10000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [sessionId, userId])
 
   if (!mine) return null
