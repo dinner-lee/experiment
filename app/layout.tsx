@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI 대화 로그 공유",
-  description: "생성형 AI와 소크라테스식 대화를 나누고 동료들과 공유하는 서비스",
+  title: "협업형 AI 학습",
+  description: "생성형 AI와 소크라테스식 대화를 나누고 동료들과 공유·조율하는 서비스",
 };
 
 export default function RootLayout({
@@ -23,9 +23,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="ko" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} bg-cream text-ink antialiased`}
         suppressHydrationWarning
       >
         {children}

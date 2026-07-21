@@ -56,7 +56,19 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ conversation })
+    // 열람자 기준 공개 범위 적용 (작성자 본인은 항상 전체 열람 가능)
+    const viewerId = request.nextUrl.searchParams.get('viewerId')
+    const isOwner = viewerId !== null && viewerId === conversation.userId
+    const payload: any = { ...conversation, isOwner }
+    if (!isOwner && conversation.shareScope === 'summary_only') {
+      payload.messages = []
+      payload.messagesHidden = true
+    }
+    if (!isOwner && conversation.isAnonymous) {
+      payload.user = { ...conversation.user, name: '익명' }
+    }
+
+    return NextResponse.json({ conversation: payload })
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch conversation' },
@@ -90,7 +102,7 @@ export async function PATCH(
       )
     }
 
-    const { title, summary, userId } = await request.json()
+    const { title, summary, userId, revise, revisionReason } = await request.json()
 
     if (!title && !summary) {
       return NextResponse.json(
@@ -136,9 +148,23 @@ export async function PATCH(
     }
 
     // 수정할 데이터 준비
-    const updateData: { title?: string; summary?: string } = {}
+    const updateData: { title?: string; summary?: string; revisions?: any } = {}
     if (title !== undefined) updateData.title = title
     if (summary !== undefined) updateData.summary = summary
+
+    // 동료 의견 비교 후 명시적 수정: 이전 요약을 수정 이력에 보존
+    if (revise && summary !== undefined) {
+      const prevRevisions = Array.isArray(conversation.revisions) ? conversation.revisions : []
+      updateData.revisions = [
+        ...prevRevisions,
+        {
+          summary: conversation.summary,
+          editedAt: new Date().toISOString(),
+          phase: 'after_compare',
+          reason: revisionReason || null,
+        },
+      ]
+    }
 
     // 대화 업데이트
     const updatedConversation = await prisma.conversation.update({
@@ -163,6 +189,7 @@ export async function PATCH(
         metadata: {
           conversationId: id,
           charsChanged,
+          ...(revise ? { phase: 'after_compare' } : {}),
         },
       },
     })

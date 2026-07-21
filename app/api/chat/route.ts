@@ -65,7 +65,42 @@ export async function POST(request: NextRequest) {
     // 클라이언트에서 전달된 값과 메시지 내용 기반 판단을 모두 고려
     // 하지만 메시지 내용 기반 판단을 우선시 (더 정확함)
     const isFirstMessage = isFirstMessageByContent
-    
+
+    // 디브리핑(성찰) 모드: 토의가 끝난 뒤 자신의 생각 변화를 점검하고 향후 계획을 세우는 대화
+    if (data?.mode === 'debrief') {
+      const mySummary = data?.context?.summary || ''
+      const teamDoc = data?.context?.teamDocument || ''
+      const debriefPrompt = `당신은 협력 학습이 끝난 뒤 학습자의 성찰(디브리핑)을 돕는 촉진자입니다.
+
+학습자는 방금 다음 활동을 마쳤습니다:
+1. AI와의 소크라테스식 대화로 "자하연 학생식당 공간 재구성" 과제에 대한 자신의 해결안을 정교화함
+2. 동료들과 해결안 요약을 공유하고 유사점·차이점을 비교함
+3. 팀 공동 결론 문서를 함께 작성함
+
+${mySummary ? `학습자의 처음 의견 요약:\n"${mySummary}"\n` : ''}${teamDoc ? `팀이 함께 작성한 공동 결론:\n"${teamDoc}"\n` : ''}
+대화 원칙:
+1. 한 번에 하나의 질문만 하세요.
+2. 다음 순서로 성찰을 이끄세요: (1) 토의 전후 자신의 생각이 어떻게 달라졌는지 → (2) 동료의 어떤 의견이 영향을 주었는지 → (3) 아직 해결되지 않았거나 추후 논의가 필요한 사항은 무엇인지 → (4) 다음에 비슷한 문제를 다룬다면 무엇을 다르게 할지.
+3. 학습자의 답변에 나온 구체적 내용을 근거로 후속 질문을 하세요.
+4. 4~5회 문답이 오간 뒤에는, 학습자의 답변을 바탕으로 "생각의 변화"와 "추후 논의할 사항"을 2~3문장으로 정리해 제시하고 성찰을 마무리하세요.
+
+${isFirstMessage ? '이것은 대화의 시작입니다. 인사 없이 바로 첫 번째 성찰 질문(토의 전후 생각의 변화)을 하세요.' : ''}`
+
+      const debriefMessages = isFirstMessage
+        ? [{ role: 'user' as const, content: '' }]
+        : processedMessagesForCheck
+            .filter((m: any) => m.content !== '시작' && m.content.trim() !== '')
+            .map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+
+      const debriefResult = await streamText({
+        model: openai(CHAT_MODEL),
+        system: debriefPrompt,
+        messages: debriefMessages,
+        temperature: 0.7,
+      })
+      return debriefResult.toUIMessageStreamResponse()
+    }
+
     console.log('isFirstMessage:', isFirstMessage, 'data.isFirstMessage:', data?.isFirstMessage, 'isFirstMessageByContent:', isFirstMessageByContent, 'hasAssistantMessage:', hasAssistantMessage, 'hasValidUserMessage:', hasValidUserMessage, 'messages:', messages.length, 'processedMessagesForCheck:', processedMessagesForCheck.length, 'processedMessagesForCheck content:', processedMessagesForCheck.map((m: any) => ({ role: m.role, content: m.content?.substring(0, 50) })))
 
     const systemPrompt = isFirstMessage
@@ -97,7 +132,9 @@ export async function POST(request: NextRequest) {
 3. 사용자의 답변을 바탕으로 더 구체적이고 깊이 있는 질문을 해야 합니다. 
 4. 사용자의 생각을 정교화하고 깊이 있게 탐구할 수 있도록 도와야 합니다.
 5. 같은 질문이나 유사한 질문을 반복하지 마세요. 대화의 맥락을 유지하고 이전 대화 내용을 참고하세요.
-6. 사용자의 답변을 바탕으로 한 번에 하나의 주제에 대해서 질문하고, 당신의 질문에 사용자가 충분히 깊이 답하였을 경우, 사용자의 첫 번째 응답에 포함된 다른 주제에 대한 산파술로 넘어가세요.`
+6. 사용자의 답변을 바탕으로 한 번에 하나의 주제에 대해서 질문하고, 당신의 질문에 사용자가 충분히 깊이 답하였을 경우, 사용자의 첫 번째 응답에 포함된 다른 주제에 대한 산파술로 넘어가세요.
+7. 사용자가 이미 알고 있는 지식(선지식)을 드러내도록 반문하세요. 예를 들어 사용자가 "동선 분리"를 언급하면, 실제로 그 식당을 이용하며 관찰한 경험이나 알고 있는 유사 사례를 근거로 제시하도록 되물어, 사용자의 경험과 지식이 해결안의 근거로 연결되게 하세요.
+8. 사용자가 자신의 생각을 표현하기 어려워하거나 모호한 표현("그냥 좋을 것 같다", "뭔가 불편하다" 등)을 쓰면, 그 생각을 구체화할 수 있는 적절한 어휘나 표현 2~3개를 예시로 제안하고("예: '동선 교차', '체류 시간', '좌석 회전율' 같은 표현 중 어떤 것이 가까운가요?"), 그중 무엇이 자신의 의도에 가장 가까운지 고르거나 자신의 말로 바꿔 말하게 하세요.`
 
 
     // 첫 메시지인 경우 시스템 프롬프트만으로 시작

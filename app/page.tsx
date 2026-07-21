@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Layers } from 'lucide-react'
+
+const FLOW = ['AI와 대화', '요약 공유', '동료와 비교', '팀 공동 결론', '성찰']
 
 export default function Home() {
   const [pinCode, setPinCode] = useState('')
@@ -42,64 +45,73 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-black">
-      <main className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg dark:bg-zinc-900">
-        <h1 className="mb-6 text-2xl font-bold text-center text-black dark:text-zinc-50">
-          AI 대화 공유 플랫폼
-        </h1>
-        <form onSubmit={handleJoin} className="space-y-4">
-          <div>
-            <label
-              htmlFor="pinCode"
-              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-            >
-              PIN 코드
-            </label>
-            <input
-              id="pinCode"
-              type="text"
-              value={pinCode}
-              onChange={(e) => setPinCode(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
-              placeholder="PIN 코드를 입력하세요"
-            />
+    <div className="flex min-h-screen items-center justify-center bg-cream px-4">
+      <main className="w-full max-w-md">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-ink text-white shadow-sm">
+            <Layers className="h-7 w-7" strokeWidth={2.2} />
           </div>
-          <div>
-            <label
-              htmlFor="userName"
-              className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-            >
-              사용자 이름
-            </label>
-            <input
-              id="userName"
-              type="text"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border border-zinc-300 px-3 py-2 text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
-              placeholder="이름을 입력하세요"
-            />
-          </div>
-          {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-200">
-              {error}
+          <h1 className="text-2xl font-bold tracking-tight text-ink">협업형 AI 학습</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            AI와 생각을 정교화하고, 동료와 비교하며, 팀의 결론을 함께 만듭니다
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200/70 bg-white p-7 shadow-sm">
+          <form onSubmit={handleJoin} className="space-y-4">
+            <div>
+              <label htmlFor="pinCode" className="mb-1.5 block text-sm font-semibold text-zinc-700">
+                PIN 코드
+              </label>
+              <input
+                id="pinCode"
+                type="text"
+                value={pinCode}
+                onChange={(e) => setPinCode(e.target.value)}
+                required
+                className="block w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-ink placeholder:text-zinc-400 focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
+                placeholder="PIN 코드를 입력하세요"
+              />
             </div>
-          )}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:bg-zinc-400"
-          >
-            {loading ? '입장 중...' : '입장하기'}
-          </button>
-        </form>
+            <div>
+              <label htmlFor="userName" className="mb-1.5 block text-sm font-semibold text-zinc-700">
+                이름
+              </label>
+              <input
+                id="userName"
+                type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                required
+                className="block w-full rounded-xl border border-zinc-200 px-4 py-2.5 text-ink placeholder:text-zinc-400 focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
+                placeholder="이름을 입력하세요"
+              />
+            </div>
+            {error && (
+              <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-pine-700 px-4 py-3 font-semibold text-white transition-colors hover:bg-pine-600 disabled:bg-zinc-300"
+            >
+              {loading ? '입장 중…' : '입장하기'}
+            </button>
+          </form>
+        </div>
+
+        {/* 활동 흐름 미리보기 */}
+        <div className="mt-5 flex items-center justify-center gap-1 text-[11px] font-medium text-zinc-400">
+          {FLOW.map((label, i) => (
+            <span key={label} className="flex items-center gap-1">
+              {i > 0 && <span className="text-zinc-300">→</span>}
+              <span>{label}</span>
+            </span>
+          ))}
+        </div>
+
         <div className="mt-4 text-center">
-          <a
-            href="/admin"
-            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
-          >
+          <a href="/admin" className="text-xs text-zinc-400 transition-colors hover:text-pine-700">
             관리자 화면
           </a>
         </div>

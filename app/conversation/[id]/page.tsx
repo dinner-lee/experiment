@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { format } from 'date-fns'
+import { ArrowLeft, EyeOff, PenLine } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -20,6 +21,9 @@ interface Conversation {
   messages: Message[]
   createdAt: string
   duration: number
+  isOwner?: boolean
+  messagesHidden?: boolean
+  revisions?: { summary: string; editedAt: string; reason?: string | null }[]
 }
 
 export default function ConversationDetailPage() {
@@ -30,21 +34,20 @@ export default function ConversationDetailPage() {
   const [loading, setLoading] = useState(true)
   const [viewStartTime, setViewStartTime] = useState<number | null>(null)
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null
-  const userName = typeof window !== 'undefined' ? localStorage.getItem('userName') : null
-  
-  // 수정 모드 상태
+
+  // 수정 모드 상태 (작성자 본인)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [isEditingSummary, setIsEditingSummary] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
   const [editedSummary, setEditedSummary] = useState('')
   const [isSaving, setIsSaving] = useState(false)
-  
-  // 작성자인지 확인
-  const isAuthor = conversation && userName && conversation.user.name === userName
+
+  const isAuthor = !!conversation?.isOwner
 
   useEffect(() => {
     setViewStartTime(Date.now())
     fetchConversation()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId])
 
   useEffect(() => {
@@ -56,51 +59,41 @@ export default function ConversationDetailPage() {
           fetch('/api/view-log', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              viewerId: userId,
-              conversationId,
-              duration,
-            }),
+            body: JSON.stringify({ viewerId: userId, conversationId, duration }),
           }).catch(console.error)
         }
       }
     }
   }, [viewStartTime, userId, conversationId])
 
+  // 동료의 대화를 열람했음을 기록 → 비교 단계로 돌아가면 수정 여부를 물어봄
+  useEffect(() => {
+    if (conversation && !conversation.isOwner && userId && conversation.sessionId) {
+      localStorage.setItem(`viewedPeer:${conversation.sessionId}:${userId}`, '1')
+    }
+  }, [conversation, userId])
+
   const fetchConversation = async () => {
     try {
-      const response = await fetch(`/api/conversation/${conversationId}`)
+      const viewerParam = userId ? `?viewerId=${userId}` : ''
+      const response = await fetch(`/api/conversation/${conversationId}${viewerParam}`)
       const data = await response.json()
-      console.log('Fetched conversation:', data.conversation)
-      console.log('Messages in response:', data.conversation?.messages)
-      console.log('Messages type:', typeof data.conversation?.messages)
-      console.log('Is array:', Array.isArray(data.conversation?.messages))
-      
+
       if (data.conversation) {
-        // messages가 배열이 아닌 경우 처리
         if (data.conversation.messages && !Array.isArray(data.conversation.messages)) {
-          console.warn('Messages is not an array, attempting to parse:', data.conversation.messages)
-          // JSON 문자열인 경우 파싱 시도
           if (typeof data.conversation.messages === 'string') {
             try {
               data.conversation.messages = JSON.parse(data.conversation.messages)
-            } catch (e) {
-              console.error('Failed to parse messages:', e)
+            } catch {
               data.conversation.messages = []
             }
           } else {
             data.conversation.messages = []
           }
         }
-        
-        // messages가 없거나 null인 경우 빈 배열로 설정
-        if (!data.conversation.messages) {
-          console.warn('Messages is null or undefined, setting to empty array')
-          data.conversation.messages = []
-        }
-        
+        if (!data.conversation.messages) data.conversation.messages = []
+
         setConversation(data.conversation)
-        // 수정용 초기값 설정
         setEditedTitle(data.conversation.title)
         setEditedSummary(data.conversation.summary)
       }
@@ -111,229 +104,135 @@ export default function ConversationDetailPage() {
     }
   }
 
-  const handleSaveTitle = async () => {
-    if (!conversation || !userId || !editedTitle.trim()) return
-    
+  const handleSave = async (field: 'title' | 'summary') => {
+    if (!conversation || !userId) return
+    const value = field === 'title' ? editedTitle.trim() : editedSummary.trim()
+    if (!value) return
+
     setIsSaving(true)
     try {
       const response = await fetch(`/api/conversation/${conversationId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: editedTitle.trim(),
-          userId,
-        }),
+        body: JSON.stringify({ [field]: value, userId }),
       })
-
       const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || '제목 저장에 실패했습니다')
-      }
-
-      setConversation(data.conversation)
-      setIsEditingTitle(false)
+      if (!response.ok) throw new Error(data.error || '저장에 실패했습니다')
+      setConversation({ ...conversation, ...data.conversation, isOwner: true })
+      if (field === 'title') setIsEditingTitle(false)
+      else setIsEditingSummary(false)
     } catch (error: any) {
-      console.error('Failed to save title:', error)
-      alert(`제목 저장에 실패했습니다: ${error.message || '알 수 없는 오류'}`)
+      alert(`저장에 실패했습니다: ${error.message || '알 수 없는 오류'}`)
     } finally {
       setIsSaving(false)
     }
   }
 
-  const handleSaveSummary = async () => {
-    if (!conversation || !userId || !editedSummary.trim()) return
-    
-    setIsSaving(true)
-    try {
-      const response = await fetch(`/api/conversation/${conversationId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          summary: editedSummary.trim(),
-          userId,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || '요약 저장에 실패했습니다')
-      }
-
-      setConversation(data.conversation)
-      setIsEditingSummary(false)
-    } catch (error: any) {
-      console.error('Failed to save summary:', error)
-      alert(`요약 저장에 실패했습니다: ${error.message || '알 수 없는 오류'}`)
-    } finally {
-      setIsSaving(false)
+  const goBack = () => {
+    const sessionId =
+      conversation?.sessionId ||
+      (typeof window !== 'undefined' ? localStorage.getItem('sessionId') : null)
+    if (sessionId) {
+      router.push(`/session/${sessionId}?step=3`)
+    } else {
+      router.back()
     }
-  }
-
-  const handleCancelTitle = () => {
-    setEditedTitle(conversation?.title || '')
-    setIsEditingTitle(false)
-  }
-
-  const handleCancelSummary = () => {
-    setEditedSummary(conversation?.summary || '')
-    setIsEditingSummary(false)
   }
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>로딩 중...</p>
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <p className="text-zinc-500">로딩 중…</p>
       </div>
     )
   }
 
   if (!conversation) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>대화를 찾을 수 없습니다.</p>
+      <div className="flex min-h-screen items-center justify-center bg-cream">
+        <p className="text-zinc-500">대화를 찾을 수 없습니다.</p>
       </div>
     )
   }
 
-  // messages 안전하게 처리
-  const messages: Message[] = Array.isArray(conversation.messages) 
-    ? conversation.messages 
-    : []
+  const messages: Message[] = Array.isArray(conversation.messages) ? conversation.messages : []
+  const revisions = Array.isArray(conversation.revisions) ? conversation.revisions : []
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
-      <div className="container mx-auto max-w-4xl px-4 py-8">
-        {/* 뒤로가기 버튼 */}
-        <div className="mb-4">
-          <button
-            onClick={() => {
-              // 세션 페이지의 '대화 로그 공유 탭'으로 이동
-              // conversation 객체에서 sessionId를 가져오거나, localStorage에서 가져오기
-              const sessionId = conversation.sessionId || 
-                (typeof window !== 'undefined' ? localStorage.getItem('sessionId') : null)
-              
-              if (sessionId) {
-                router.push(`/session/${sessionId}?tab=logs`)
-              } else {
-                // sessionId가 없으면 브라우저 뒤로가기
-                router.back()
-              }
-            }}
-            className="flex items-center gap-2 rounded-md border border-zinc-300 bg-white px-4 py-2 text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="h-5 w-5"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-              />
-            </svg>
-            뒤로가기
-          </button>
-        </div>
+    <div className="min-h-screen bg-cream">
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <button
+          onClick={goBack}
+          className="mb-5 flex items-center gap-2 rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:text-ink"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          비교 단계로 돌아가기
+        </button>
 
         {/* 헤더 */}
-        <div className="mb-6 rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
+        <div className="mb-5 rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm">
           {isEditingTitle && isAuthor ? (
             <div className="mb-4">
               <input
                 type="text"
                 value={editedTitle}
                 onChange={(e) => setEditedTitle(e.target.value)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2 text-3xl font-bold text-black focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+                className="w-full rounded-xl border border-zinc-200 px-4 py-2 text-2xl font-bold text-ink focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
                 placeholder="제목을 입력하세요"
                 disabled={isSaving}
               />
               <div className="mt-2 flex gap-2">
                 <button
-                  onClick={handleSaveTitle}
+                  onClick={() => handleSave('title')}
                   disabled={isSaving || !editedTitle.trim()}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:bg-zinc-400"
+                  className="rounded-lg bg-pine-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-pine-600 disabled:bg-zinc-300"
                 >
                   저장
                 </button>
                 <button
-                  onClick={handleCancelTitle}
+                  onClick={() => {
+                    setEditedTitle(conversation.title)
+                    setIsEditingTitle(false)
+                  }}
                   disabled={isSaving}
-                  className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                  className="rounded-lg border border-zinc-300 bg-white px-4 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
                 >
                   취소
                 </button>
               </div>
             </div>
           ) : (
-            <div className="mb-4 flex items-start justify-between">
-              <h1 className="text-3xl font-bold text-black dark:text-zinc-50">
-                {conversation.title}
-              </h1>
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <h1 className="text-2xl font-bold leading-snug text-ink">{conversation.title}</h1>
               {isAuthor && (
                 <button
                   onClick={() => setIsEditingTitle(true)}
-                  className="ml-4 rounded-md border border-zinc-300 bg-white px-3 py-1 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                  className="shrink-0 rounded-lg border border-zinc-200 bg-white p-2 text-zinc-500 transition-colors hover:border-zinc-300 hover:text-ink"
                   title="제목 수정"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={1.5}
-                    stroke="currentColor"
-                    className="h-4 w-4"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l11.717-11.717zM16.862 4.487L19.5 7.125"
-                    />
-                  </svg>
+                  <PenLine className="h-4 w-4" />
                 </button>
               )}
             </div>
           )}
-          <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
-            <p>
-              <span className="font-medium">사용자:</span> {conversation.user.name}
-            </p>
-            <p>
-              <span className="font-medium">공유 일시:</span>{' '}
-              {format(new Date(conversation.createdAt), 'yyyy년 MM월 dd일 HH:mm')}
-            </p>
-          </div>
+          <p className="text-sm text-zinc-500">
+            <span className="font-semibold text-zinc-700">{conversation.user.name}</span>
+            {' · '}
+            {format(new Date(conversation.createdAt), 'yyyy년 MM월 dd일 HH:mm')}
+          </p>
         </div>
 
         {/* 요약 */}
-        <div className="mb-6 rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
+        <div className="mb-5 rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm">
           <div className="mb-3 flex items-start justify-between">
-            <h2 className="text-xl font-bold text-black dark:text-zinc-50">요약</h2>
+            <h2 className="text-lg font-bold text-ink">요약</h2>
             {isAuthor && !isEditingSummary && (
               <button
                 onClick={() => setIsEditingSummary(true)}
-                className="ml-4 rounded-md border border-zinc-300 bg-white px-3 py-1 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                className="rounded-lg border border-zinc-200 bg-white p-2 text-zinc-500 transition-colors hover:border-zinc-300 hover:text-ink"
                 title="요약 수정"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke="currentColor"
-                  className="h-4 w-4"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l11.717-11.717zM16.862 4.487L19.5 7.125"
-                  />
-                </svg>
+                <PenLine className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -342,62 +241,83 @@ export default function ConversationDetailPage() {
               <textarea
                 value={editedSummary}
                 onChange={(e) => setEditedSummary(e.target.value)}
-                className="w-full rounded-md border border-zinc-300 bg-white px-4 py-2 leading-relaxed text-zinc-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
-                placeholder="요약을 입력하세요"
+                className="w-full resize-y rounded-xl border border-zinc-200 px-4 py-3 leading-relaxed text-ink focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
                 rows={6}
                 disabled={isSaving}
               />
               <div className="mt-2 flex gap-2">
                 <button
-                  onClick={handleSaveSummary}
+                  onClick={() => handleSave('summary')}
                   disabled={isSaving || !editedSummary.trim()}
-                  className="rounded-md bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:bg-zinc-400"
+                  className="rounded-lg bg-pine-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-pine-600 disabled:bg-zinc-300"
                 >
                   저장
                 </button>
                 <button
-                  onClick={handleCancelSummary}
+                  onClick={() => {
+                    setEditedSummary(conversation.summary)
+                    setIsEditingSummary(false)
+                  }}
                   disabled={isSaving}
-                  className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                  className="rounded-lg border border-zinc-300 bg-white px-4 py-1.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
                 >
                   취소
                 </button>
               </div>
             </div>
           ) : (
-            <p className="leading-relaxed text-zinc-700 dark:text-zinc-300">
-              {conversation.summary}
-            </p>
+            <p className="leading-relaxed text-zinc-700">{conversation.summary}</p>
+          )}
+
+          {/* 수정 이력 */}
+          {revisions.length > 0 && (
+            <details className="mt-4 rounded-xl bg-zinc-50 px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium text-zinc-600">
+                수정 이력 {revisions.length}건 보기
+              </summary>
+              <div className="mt-3 space-y-3">
+                {revisions.map((rev, i) => (
+                  <div key={i} className="border-l-2 border-zinc-300 pl-3">
+                    <p className="text-xs text-zinc-400">
+                      {format(new Date(rev.editedAt), 'MM/dd HH:mm')} 이전 버전
+                      {rev.reason && ` · ${rev.reason}`}
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-zinc-600">{rev.summary}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
           )}
         </div>
 
         {/* 대화 로그 */}
-        <div className="rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-          <h2 className="mb-4 text-xl font-bold text-black dark:text-zinc-50">대화 로그</h2>
-          {messages.length === 0 ? (
-            <p className="text-zinc-500 dark:text-zinc-400">대화 로그가 없습니다.</p>
+        <div className="rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-bold text-ink">대화 로그</h2>
+          {conversation.messagesHidden ? (
+            <div className="flex items-center gap-2.5 rounded-xl bg-zinc-50 px-4 py-4 text-sm text-zinc-500">
+              <EyeOff className="h-4 w-4 shrink-0" />
+              작성자가 요약만 공개하도록 설정했습니다.
+            </div>
+          ) : messages.length === 0 ? (
+            <p className="text-zinc-500">대화 로그가 없습니다.</p>
           ) : (
             <div className="space-y-4">
               {messages.map((message, index) => {
-                // message.content가 없는 경우 처리
                 const content = message.content || ''
                 if (!content.trim()) return null
-                
                 return (
                   <div
                     key={index}
-                    className={`flex ${
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                      className={`max-w-[80%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed ${
                         message.role === 'user'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50'
+                          ? 'rounded-br-md bg-pine-700 text-white'
+                          : 'rounded-bl-md border border-zinc-200/70 bg-zinc-50 text-zinc-800'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{content}</p>
+                      {content}
                     </div>
                   </div>
                 )
@@ -405,6 +325,21 @@ export default function ConversationDetailPage() {
             </div>
           )}
         </div>
+
+        {/* 동료 열람 시: 내 의견 수정 유도 */}
+        {!isAuthor && (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-pine-200 bg-pine-50 px-5 py-4">
+            <p className="text-sm font-medium text-pine-800">
+              동료의 생각에서 새로 알게 된 점이 있나요? 내 의견에 반영해보세요.
+            </p>
+            <button
+              onClick={goBack}
+              className="rounded-lg bg-pine-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-pine-600"
+            >
+              내 의견 수정하러 가기
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

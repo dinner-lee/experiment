@@ -20,6 +20,7 @@ model Session {
   users         User[]
   conversations Conversation[]
   userLogs      UserLog[]
+  teamDocument  TeamDocument?
 }
 
 // 사용자 (간단하게, 인증 없이)
@@ -47,10 +48,26 @@ model Conversation {
   turnCount   Int      // 대화 턴 수
   createdAt   DateTime @default(now())
   isShared    Boolean  @default(false)
-  
+  kind        String   @default("main") // 'main' | 'debrief'
+  shareScope  String   @default("full") // 'full' | 'summary_only'
+  isAnonymous Boolean  @default(false)
+  revisions   Json?    // 수정 이력: [{summary, editedAt, phase}]
+
   user      User      @relation(fields: [userId], references: [id])
   session   Session   @relation(fields: [sessionId], references: [id])
   viewLogs  ViewLog[]
+}
+
+// 팀 공동 산출물 (세션당 1개, 동시 편집)
+model TeamDocument {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  content   String   @default("")
+  version   Int      @default(0)
+  editors   Json?    // 현재 편집 중인 사용자: {userId: {name, lastSeen}}
+  updatedAt DateTime @updatedAt
+
+  session Session @relation(fields: [sessionId], references: [id])
 }
 
 // 사용자 활동 로그

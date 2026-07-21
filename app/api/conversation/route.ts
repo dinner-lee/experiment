@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 // 새 대화 생성
 export async function POST(request: NextRequest) {
   try {
-    const { userId, sessionId, messages, startTime, title, summary, duration, turnCount } = await request.json()
+    const { userId, sessionId, messages, startTime, title, summary, duration, turnCount, kind } = await request.json()
 
     if (!userId || !sessionId || !messages) {
       return NextResponse.json(
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
         duration: duration || 0,
         turnCount: turnCount !== undefined ? turnCount : (messages.length / 2), // 대략적인 턴 수
         isShared: false,
+        kind: kind === 'debrief' ? 'debrief' : 'main',
       },
     })
 
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId,
         sessionId,
-        eventType: 'chat_start',
+        eventType: kind === 'debrief' ? 'debrief_start' : 'chat_start',
         metadata: { conversationId: conversation.id, startTime },
       },
     })

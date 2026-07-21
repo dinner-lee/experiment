@@ -24,7 +24,7 @@ export async function POST(
         { status: 400 }
       )
     }
-    const { summary, editMetadata, messages, pinCode, duration, title } = await request.json()
+    const { summary, editMetadata, messages, pinCode, duration, title, shareScope, isAnonymous } = await request.json()
 
     const conversation = await prisma.conversation.findUnique({
       where: { id },
@@ -69,8 +69,18 @@ export async function POST(
       messages?: any
       duration?: number
       isShared: boolean
+      shareScope?: string
+      isAnonymous?: boolean
     } = {
       isShared: true,
+    }
+
+    // 공유 수준 단계화: 전체 공개 / 요약만 공개, 익명 여부
+    if (shareScope === 'summary_only' || shareScope === 'full') {
+      updateData.shareScope = shareScope
+    }
+    if (typeof isAnonymous === 'boolean') {
+      updateData.isAnonymous = isAnonymous
     }
 
     // duration이 제공되면 업데이트

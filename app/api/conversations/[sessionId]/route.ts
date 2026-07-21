@@ -21,16 +21,26 @@ export async function GET(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
+    // 열람자 확인 (익명 처리 및 본인 대화 식별용)
+    const viewerId = request.nextUrl.searchParams.get('viewerId')
+
     // 모든 공유된 대화를 조회 (PIN 번호 필터링은 클라이언트에서 처리)
     const conversations = await prisma.conversation.findMany({
       where: {
         isShared: true,
+        kind: 'main',
       },
       include: {
         user: true,
         session: {
           select: {
             pinCode: true,
+          },
+        },
+        viewLogs: {
+          select: {
+            viewerId: true,
+            viewer: { select: { name: true } },
           },
         },
       },
@@ -48,16 +58,33 @@ export async function GET(
 
     const result = conversations
       .filter((conv) => conv.session && conv.user) // session과 user가 있는 대화만
-      .map((conv) => ({
-        id: conv.id,
-        userName: conv.user.name,
-        title: conv.title || '(제목 없음)', // 제목이 없으면 기본값
-        summary: conv.summary,
-        createdAt: conv.createdAt,
-        duration: conv.duration,
-        turnCount: conv.turnCount,
-        pinCode: conv.session?.pinCode || null, // PIN 번호 포함 (클라이언트 필터링용)
-      }))
+      .map((conv) => {
+        const isMine = viewerId !== null && conv.userId === viewerId
+        // 읽음 표시: 작성자 본인을 제외한 고유 열람자
+        const readerNames = Array.from(
+          new Map(
+            conv.viewLogs
+              .filter((v) => v.viewerId !== conv.userId)
+              .map((v) => [v.viewerId, v.viewer?.name || '알 수 없음'])
+          ).values()
+        )
+        return {
+          id: conv.id,
+          userName: conv.isAnonymous && !isMine ? '익명' : conv.user.name,
+          isMine,
+          isAnonymous: conv.isAnonymous,
+          shareScope: conv.shareScope,
+          title: conv.title || '(제목 없음)', // 제목이 없으면 기본값
+          summary: conv.summary,
+          createdAt: conv.createdAt,
+          duration: conv.duration,
+          turnCount: conv.turnCount,
+          pinCode: conv.session?.pinCode || null, // PIN 번호 포함 (클라이언트 필터링용)
+          readerCount: readerNames.length,
+          readerNames,
+          revisionCount: Array.isArray(conv.revisions) ? conv.revisions.length : 0,
+        }
+      })
 
     console.log('Returning conversations:', result.length)
     console.log('Current PIN code:', session.pinCode)
