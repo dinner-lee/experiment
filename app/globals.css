@@ -1,74 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Pretendard: 제목·네비바 등은 굵기별, 본문은 400 굵기 사용 */
-@font-face {
-  font-family: 'Pretendard';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Thin.woff2') format('woff2');
-  font-weight: 100;
-  font-display: swap;
-}
+/* 본문 폰트 Pretendard는 공식 동적 서브셋(layout.tsx의 <link>)으로 로드되어
+   'Pretendard Variable' 패밀리를 제공한다 — 필요한 글자 조각만 내려받아 빠르다. */
 
-@font-face {
-  font-family: 'Pretendard';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-ExtraLight.woff2') format('woff2');
-  font-weight: 200;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Pretendard';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Light.woff2') format('woff2');
-  font-weight: 300;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Pretendard';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Pretendard';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Pretendard';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-SemiBold.woff2') format('woff2');
-  font-weight: 600;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Pretendard';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Pretendard';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-ExtraBold.woff2') format('woff2');
-  font-weight: 800;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Pretendard';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Black.woff2') format('woff2');
-  font-weight: 900;
-  font-display: swap;
-}
-
-/* 제목·상단 navbar 전용 디스플레이 폰트 */
+/* 제목·상단 navbar 전용 디스플레이 폰트 (자체 호스팅 + preload) */
 @font-face {
   font-family: 'SchoolSafeUniverse';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2307-2@1.0/HakgyoansimWoojuR.woff2') format('woff2');
+  src: url('/fonts/HakgyoansimWoojuR.woff2') format('woff2');
   font-weight: normal;
   font-display: swap;
 }
@@ -78,8 +17,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: 'Pretendard', var(--font-geist-sans), -apple-system, sans-serif;
-  --font-display: 'SchoolSafeUniverse', 'Pretendard', sans-serif;
+  --font-sans: 'Pretendard Variable', 'Pretendard', var(--font-geist-sans), -apple-system, sans-serif;
+  --font-display: 'SchoolSafeUniverse', 'Pretendard Variable', 'Pretendard', sans-serif;
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -207,7 +146,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Pretendard', var(--font-geist-sans), -apple-system, sans-serif;
+    font-family: 'Pretendard Variable', 'Pretendard', var(--font-geist-sans), -apple-system, sans-serif;
     font-weight: 400; /* 본문 기본 굵기 */
     word-break: keep-all; /* 한국어 어절 단위 줄바꿈 */
     overflow-wrap: break-word;
@@ -216,7 +155,7 @@
   h1,
   h2,
   h3 {
-    font-family: 'SchoolSafeUniverse', 'Pretendard', sans-serif;
+    font-family: 'SchoolSafeUniverse', 'Pretendard Variable', 'Pretendard', sans-serif;
     letter-spacing: 0.01em;
   }
 }
