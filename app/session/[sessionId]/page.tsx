@@ -102,6 +102,12 @@ export default function SessionPage() {
     [stepKey, maxKey, sessionId]
   )
 
+  // 루트 레이아웃의 플로팅 패널 프로바이더에 현재 단계 알림
+  useEffect(() => {
+    if (!userId) return
+    window.dispatchEvent(new CustomEvent('flow-step-changed', { detail: { step: currentStep } }))
+  }, [currentStep, userId])
+
   const handleLogout = () => {
     localStorage.removeItem('userId')
     localStorage.removeItem('userName')

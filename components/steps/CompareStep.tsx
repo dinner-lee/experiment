@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Users,
 } from 'lucide-react'
-import FloatingMyOpinion from '@/components/FloatingMyOpinion'
 
 interface CompareStepProps {
   userId: string
@@ -197,9 +196,6 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
 
   return (
     <div className="space-y-6">
-      {/* 3단계 어디서든 내 의견을 띄워 두고 확인·수정할 수 있는 플로팅 패널 */}
-      <FloatingMyOpinion sessionId={sessionId} userId={userId} />
-
       {/* 동료 열람 후 수정 유도 배너 */}
       {showRevisePrompt && myConversation && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-pine-200 bg-pine-50 px-5 py-4">

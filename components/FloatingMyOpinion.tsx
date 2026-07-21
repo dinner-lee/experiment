@@ -15,7 +15,16 @@ interface MyConversation {
 
 // 동료 의견을 열람하는 동안 내 의견을 띄워 두고 바로 수정할 수 있는 플로팅 패널
 export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpinionProps) {
-  const [mine, setMine] = useState<MyConversation | null>(null)
+  // 전체 새로고침 시에도 즉시 표시되도록 마지막 데이터를 캐시
+  const [mine, setMine] = useState<MyConversation | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const raw = sessionStorage.getItem(`cache:myop:${sessionId}:${userId}`)
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })
   const [open, setOpen] = useState(true)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -39,6 +48,14 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
             }
             return { id: my.id, summary: my.summary }
           })
+          try {
+            sessionStorage.setItem(
+              `cache:myop:${sessionId}:${userId}`,
+              JSON.stringify({ id: my.id, summary: my.summary })
+            )
+          } catch {
+            // 캐시 저장 실패는 무시
+          }
         }
       } catch (error) {
         console.error('Failed to fetch my opinion:', error)

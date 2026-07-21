@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { ArrowRight, FileText, Users } from 'lucide-react'
-import FloatingMyOpinion from '@/components/FloatingMyOpinion'
 
 interface TeamStepProps {
   userId: string
@@ -155,9 +154,6 @@ export default function TeamStep({ userId, sessionId, userName, onNext }: TeamSt
 
   return (
     <div className="space-y-6">
-      {/* 공동 결론 작성 중에도 내 의견을 띄워 두고 참고·수정할 수 있는 플로팅 패널 */}
-      <FloatingMyOpinion sessionId={sessionId} userId={userId} />
-
       <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-6 py-4">
           <div>
