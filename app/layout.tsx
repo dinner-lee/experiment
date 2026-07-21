@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "협업형 AI 학습",
-  description: "생성형 AI와 소크라테스식 대화를 나누고 동료들과 공유·조율하는 서비스",
+  title: "협력적 문제해결 지원 시스템",
+  description: "AI와 생각을 정교화하고 동료와 관점을 비교하며 팀의 결론을 함께 만드는 학습 지원 시스템",
 };
 
 export default function RootLayout({

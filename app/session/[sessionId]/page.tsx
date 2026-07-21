@@ -10,7 +10,7 @@ import TeamStep from '@/components/steps/TeamStep'
 import DebriefStep from '@/components/steps/DebriefStep'
 import AnswerTab from '@/components/AnswerTab'
 import SharedAnswersTab from '@/components/SharedAnswersTab'
-import { Layers, LogOut } from 'lucide-react'
+import { LogOut, Puzzle } from 'lucide-react'
 
 const STEPS: StepDef[] = [
   { n: 1, label: 'AI와 대화하기' },
@@ -181,8 +181,8 @@ export default function SessionPage() {
       <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-white">
-              <Layers className="h-5 w-5" strokeWidth={2.2} />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pine-800 text-white">
+              <Puzzle className="h-5 w-5" strokeWidth={2.2} />
             </div>
             <span className="text-lg font-bold tracking-tight text-ink">질문에 답하기</span>
           </div>

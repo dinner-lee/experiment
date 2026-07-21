@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Layers, LogOut } from 'lucide-react'
+import { Check, LogOut, Puzzle } from 'lucide-react'
 
 export interface StepDef {
   n: number
@@ -29,11 +29,11 @@ export default function StepNav({
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         {/* 로고 */}
         <div className="flex shrink-0 items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-white">
-            <Layers className="h-5 w-5" strokeWidth={2.2} />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pine-800 text-white">
+            <Puzzle className="h-5 w-5" strokeWidth={2.2} />
           </div>
-          <span className="hidden text-lg font-bold tracking-tight text-ink md:block">
-            협업형 AI 학습
+          <span className="hidden text-base font-bold tracking-tight text-ink xl:block">
+            협력적 문제해결 지원 시스템
           </span>
         </div>
 
