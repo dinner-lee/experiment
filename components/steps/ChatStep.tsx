@@ -290,11 +290,6 @@ export default function ChatStep({ userId, sessionId, userName, onComplete }: Ch
 
     {/* 다음 단계 (우측 하단, 공통 디자인) */}
     <div className="flex items-center justify-end gap-3">
-      {userTurns < 3 && (
-        <p className="text-xs text-zinc-400">
-          AI의 질문에 3회 이상 답하면 다음 단계로 넘어갈 수 있습니다. (현재 {userTurns}회)
-        </p>
-      )}
       <button
         onClick={handleEndChat}
         disabled={isLoading || isSummarizing || userTurns < 3}

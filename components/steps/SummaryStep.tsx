@@ -242,11 +242,6 @@ export default function SummaryStep({
 
     {/* 다음 단계 (우측 하단, 공통 디자인) */}
     <div className="flex items-center justify-end gap-3">
-      {!allChecked && (
-        <p className="text-xs text-zinc-400">
-          자기점검 항목을 모두 확인하면 공유할 수 있습니다.
-        </p>
-      )}
       <button
         onClick={handleShare}
         disabled={!allChecked || isSharing || !summary.trim()}
