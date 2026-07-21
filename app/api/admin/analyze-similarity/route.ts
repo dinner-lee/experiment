@@ -357,7 +357,9 @@ export async function POST(request: NextRequest) {
     // 추출할 최대 개념 개수 (클라이언트 요청 또는 기본값)
     const MAX_CONCEPTS = maxConcepts
 
-    for (const summary of validSummaries) {
+    // 요약별 개념 추출을 병렬 실행 (순차 호출 대비 요약 수만큼 빨라짐, 순서 보존)
+    const extractedConcepts = await Promise.all(
+      validSummaries.map(async (summary: string): Promise<string[]> => {
       try {
         const completion = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
@@ -396,38 +398,25 @@ export async function POST(request: NextRequest) {
         let parsed: any = {}
         try {
           parsed = JSON.parse(responseText)
-        } catch (parseError) {
+        } catch {
           console.error('Failed to parse JSON response:', responseText)
-          conceptsBySummary.push([])
-          continue
+          return []
         }
 
         const concepts = parsed.concepts || parsed.concept || []
+        if (!Array.isArray(concepts)) return []
 
-        if (Array.isArray(concepts)) {
-          const filteredConcepts = concepts
-            .filter((c: any) => c && typeof c === 'string' && c.trim().length > 0)
-            .map((c: string) => c.trim())
-
-          // 최대 MAX_CONCEPTS 개를 넘지 않도록 조정
-          let finalConcepts: string[] = []
-          if (filteredConcepts.length > MAX_CONCEPTS) {
-            finalConcepts = filteredConcepts.slice(0, MAX_CONCEPTS)
-          } else {
-            finalConcepts = filteredConcepts
-          }
-
-          conceptsBySummary.push(finalConcepts)
-          console.log(`Extracted ${finalConcepts.length} concepts from summary ${conceptsBySummary.length}:`, finalConcepts.slice(0, 5))
-        } else {
-          conceptsBySummary.push([])
-          console.log(`No concepts extracted from summary ${conceptsBySummary.length}`)
-        }
+        return concepts
+          .filter((c: any) => c && typeof c === 'string' && c.trim().length > 0)
+          .map((c: string) => c.trim())
+          .slice(0, MAX_CONCEPTS)
       } catch (error: any) {
         console.error('Failed to extract concepts:', error.message || error)
-        conceptsBySummary.push([])
+        return []
       }
-    }
+      })
+    )
+    conceptsBySummary.push(...extractedConcepts)
 
     // 모든 개념 수집
     const allConcepts: string[] = []

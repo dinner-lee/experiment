@@ -65,12 +65,18 @@ export async function GET() {
     // 데이터베이스 연결 테스트
     await prisma.$connect()
 
+    // 목록에는 개수만 필요하므로 관계 데이터 전체 대신 count만 조회 (페이로드 최소화)
     const sessions = await prisma.session.findMany({
       where: { isActive: true },
-      include: {
-        users: true,
-        conversations: {
-          where: { isShared: true },
+      select: {
+        id: true,
+        pinCode: true,
+        createdAt: true,
+        _count: {
+          select: {
+            users: true,
+            conversations: { where: { isShared: true } },
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -80,8 +86,8 @@ export async function GET() {
       pinCode: session.pinCode,
       id: session.id,
       createdAt: session.createdAt,
-      userCount: session.users.length,
-      conversationCount: session.conversations.length,
+      userCount: session._count.users,
+      conversationCount: session._count.conversations,
     }))
 
     return NextResponse.json({ sessions: result })

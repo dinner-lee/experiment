@@ -20,15 +20,15 @@ export async function GET(
       return NextResponse.json({ error: 'PIN code is required' }, { status: 400 })
     }
 
+    // 대화 원문은 별도 목록 API에서 조회하므로 여기서는 세션 기본 정보만 반환 (페이로드 최소화)
     const session = await prisma.session.findUnique({
       where: { pinCode: actualPinCode },
-      include: {
-        users: true,
-        conversations: {
-          where: { isShared: true },
-          include: {
-            user: true,
-          },
+      select: {
+        id: true,
+        pinCode: true,
+        users: { select: { id: true, name: true } },
+        _count: {
+          select: { conversations: { where: { isShared: true } } },
         },
       },
     })
@@ -42,8 +42,8 @@ export async function GET(
         id: session.id,
         pinCode: session.pinCode,
         userCount: session.users.length,
-        users: session.users.map(u => ({ id: u.id, name: u.name })),
-        conversations: session.conversations,
+        users: session.users,
+        conversationCount: session._count.conversations,
       },
     })
   } catch (error: any) {
