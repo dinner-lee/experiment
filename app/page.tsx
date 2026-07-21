@@ -44,11 +44,7 @@ export default function Home() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-cream px-4 py-10">
-      {/* 배경 장식 */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-32 right-[-10%] h-96 w-96 rounded-full bg-pine-100 opacity-60 blur-3xl"
-      />
+      {/* 배경 장식 (좌측 은은한 블러) */}
       <div
         aria-hidden
         className="pointer-events-none absolute bottom-[-20%] left-[-8%] h-[28rem] w-[28rem] rounded-full bg-pine-200/40 blur-3xl"
@@ -56,33 +52,40 @@ export default function Home() {
 
       <main className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-zinc-200/70 bg-white shadow-xl shadow-zinc-900/5">
         <div className="grid md:grid-cols-[1.1fr_1fr]">
-          {/* 왼쪽: 브랜드 패널 */}
-          <div className="relative flex flex-col justify-between bg-pine-800 p-8 text-white md:p-10">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-pine-700/60 blur-2xl"
-            />
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -bottom-20 -left-10 h-64 w-64 rounded-full bg-pine-900/70 blur-2xl"
-            />
-            <div className="relative">
-              <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20">
-                <Puzzle className="h-6 w-6" strokeWidth={2} />
+          {/* 왼쪽: 브랜드 글래스 패널 (흰색 카드 위에 떠 있는 형태) */}
+          <div className="p-3 md:p-4">
+            <div className="relative flex h-full flex-col justify-between overflow-hidden rounded-2xl bg-pine-800/90 p-7 text-white shadow-2xl shadow-pine-900/40 ring-1 ring-white/25 backdrop-blur-xl md:p-9">
+              {/* 글래스 광택 + 흰색 블러 장식 */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-transparent"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -left-14 -top-14 h-48 w-48 rounded-full bg-white/15 blur-2xl"
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -bottom-16 right-4 h-44 w-44 rounded-full bg-white/10 blur-3xl"
+              />
+              <div className="relative">
+                <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15 shadow-inner ring-1 ring-white/30 backdrop-blur">
+                  <Puzzle className="h-6 w-6" strokeWidth={2} />
+                </div>
+                <h1 className="text-2xl font-bold leading-snug tracking-tight md:text-[1.7rem]">
+                  협력적 문제해결
+                  <br />
+                  지원 시스템
+                </h1>
+                <p className="mt-3 max-w-xs text-sm leading-relaxed text-pine-100/90">
+                  AI와의 대화로 나의 생각을 정교화하고, 동료와 서로의 관점을 비교하며, 팀의
+                  결론을 함께 만들어가는 학습 공간입니다.
+                </p>
               </div>
-              <h1 className="text-2xl font-bold leading-snug tracking-tight md:text-[1.7rem]">
-                협력적 문제해결
-                <br />
-                지원 시스템
-              </h1>
-              <p className="mt-3 max-w-xs text-sm leading-relaxed text-pine-100/90">
-                AI와의 대화로 나의 생각을 정교화하고, 동료와 서로의 관점을 비교하며, 팀의 결론을
-                함께 만들어가는 학습 공간입니다.
+              <p className="relative mt-10 hidden text-xs text-pine-100/60 md:block">
+                선생님에게 안내받은 PIN 코드로 입장하세요.
               </p>
             </div>
-            <p className="relative mt-10 hidden text-xs text-pine-100/60 md:block">
-              선생님에게 안내받은 PIN 코드로 입장하세요.
-            </p>
           </div>
 
           {/* 오른쪽: 입장 폼 */}
