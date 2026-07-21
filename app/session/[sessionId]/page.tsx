@@ -181,8 +181,12 @@ export default function SessionPage() {
       <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/95 font-display backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pine-800 text-white">
-              <Puzzle className="h-5 w-5" strokeWidth={2.2} />
+            <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-pine-700/75 text-white shadow-inner ring-1 ring-inset ring-white/30 backdrop-blur-md">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/30 via-white/5 to-transparent"
+              />
+              <Puzzle className="relative h-5 w-5" strokeWidth={2.2} />
             </div>
             <span className="text-lg font-bold tracking-tight text-ink">질문에 답하기</span>
           </div>

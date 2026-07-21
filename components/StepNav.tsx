@@ -29,8 +29,12 @@ export default function StepNav({
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         {/* 로고 */}
         <div className="flex shrink-0 items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pine-800 text-white">
-            <Puzzle className="h-5 w-5" strokeWidth={2.2} />
+          <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-pine-700/75 text-white shadow-inner ring-1 ring-inset ring-white/30 backdrop-blur-md">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/30 via-white/5 to-transparent"
+            />
+            <Puzzle className="relative h-5 w-5" strokeWidth={2.2} />
           </div>
           <span className="hidden text-xl font-bold tracking-tight text-ink xl:block">
             협력적 문제해결 지원 시스템
