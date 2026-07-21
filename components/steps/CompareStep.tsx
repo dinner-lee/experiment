@@ -46,9 +46,24 @@ interface Analysis {
 
 export default function CompareStep({ userId, sessionId, userName, onNext }: CompareStepProps) {
   const router = useRouter()
-  const [allConversations, setAllConversations] = useState<SharedConversation[]>([])
-  const [currentPinCode, setCurrentPinCode] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const cacheKey = `cache:convs:${sessionId}:${userId}`
+  // 마지막으로 받아둔 목록을 즉시 표시하고, 백그라운드에서 최신 데이터로 갱신
+  const [cached] = useState<{ conversations: SharedConversation[]; pinCode: string | null } | null>(
+    () => {
+      if (typeof window === 'undefined') return null
+      try {
+        const raw = sessionStorage.getItem(cacheKey)
+        return raw ? JSON.parse(raw) : null
+      } catch {
+        return null
+      }
+    }
+  )
+  const [allConversations, setAllConversations] = useState<SharedConversation[]>(
+    cached?.conversations || []
+  )
+  const [currentPinCode, setCurrentPinCode] = useState<string | null>(cached?.pinCode || null)
+  const [loading, setLoading] = useState(!cached)
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisError, setAnalysisError] = useState('')
@@ -71,12 +86,23 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
       const data = await response.json()
       setAllConversations(data.conversations || [])
       setCurrentPinCode(data.currentPinCode || null)
+      try {
+        sessionStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            conversations: data.conversations || [],
+            pinCode: data.currentPinCode || null,
+          })
+        )
+      } catch {
+        // 캐시 저장 실패는 무시
+      }
     } catch (error) {
       console.error('Failed to fetch conversations:', error)
     } finally {
       setLoading(false)
     }
-  }, [sessionId, userId])
+  }, [sessionId, userId, cacheKey])
 
   useEffect(() => {
     fetchConversations()

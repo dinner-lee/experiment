@@ -24,15 +24,26 @@ const TEMPLATE = `[우리 팀의 문제 정의]
 `
 
 export default function TeamStep({ userId, sessionId, userName, onNext }: TeamStepProps) {
-  const [content, setContent] = useState('')
+  const cacheKey = `cache:teamdoc:${sessionId}`
+  // 마지막 동기화 내용을 즉시 표시하고, 백그라운드 폴링으로 최신화
+  const [cached] = useState<{ content: string; version: number } | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const raw = sessionStorage.getItem(cacheKey)
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })
+  const [content, setContent] = useState(cached?.content || '')
   const [editors, setEditors] = useState<{ userId: string; name: string }[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!cached)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'merged'>('idle')
 
   // 폴링/디바운스 콜백에서 최신 상태를 참조하기 위한 ref
-  const contentRef = useRef('')
-  const versionRef = useRef(0)
-  const baseContentRef = useRef('')
+  const contentRef = useRef(cached?.content || '')
+  const versionRef = useRef(cached?.version || 0)
+  const baseContentRef = useRef(cached?.content || '')
   const dirtyRef = useRef(false)
   const savingRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -42,6 +53,14 @@ export default function TeamStep({ userId, sessionId, userName, onNext }: TeamSt
     versionRef.current = serverVersion
     baseContentRef.current = serverContent
     setContent(serverContent)
+    try {
+      sessionStorage.setItem(
+        `cache:teamdoc:${sessionId}`,
+        JSON.stringify({ content: serverContent, version: serverVersion })
+      )
+    } catch {
+      // 캐시 저장 실패는 무시
+    }
   }
 
   const save = useCallback(async () => {

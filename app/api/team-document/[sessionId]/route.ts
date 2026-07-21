@@ -77,12 +77,12 @@ function threeWayMerge(base: string, server: string, client: string): string {
   )
 }
 
-async function getOrCreateDocument(sessionId: string) {
-  return prisma.teamDocument.upsert({
-    where: { sessionId },
-    update: {},
-    create: { sessionId, content: '', version: 0 },
-  })
+async function getOrCreateDocument(sessionId: string, editors?: EditorsMap) {
+  const existing = await prisma.teamDocument.findUnique({ where: { sessionId } })
+  if (existing) return existing
+  return prisma.teamDocument
+    .create({ data: { sessionId, content: '', version: 0, editors } })
+    .catch(() => prisma.teamDocument.findUniqueOrThrow({ where: { sessionId } })) // 동시 생성 경합 대비
 }
 
 // 문서 조회 + 프레즌스 갱신 (폴링용)
@@ -95,15 +95,22 @@ export async function GET(
     const userId = request.nextUrl.searchParams.get('userId')
     const name = request.nextUrl.searchParams.get('name')
 
-    const doc = await getOrCreateDocument(sessionId)
+    const now = Date.now()
+    const initialEditors: EditorsMap | undefined =
+      userId && name ? { [userId]: { name, lastSeen: now } } : undefined
+    const doc = await getOrCreateDocument(sessionId, initialEditors)
     const editors = pruneEditors(doc.editors)
 
     if (userId && name) {
-      editors[userId] = { name, lastSeen: Date.now() }
-      await prisma.teamDocument.update({
-        where: { sessionId },
-        data: { editors },
-      })
+      // 쓰기 최소화: 내 프레즌스가 4초 이상 오래됐을 때만 갱신 (TTL 12초, 폴링 2초)
+      const mine = editors[userId]
+      editors[userId] = { name, lastSeen: now }
+      if (!mine || now - mine.lastSeen > 4000) {
+        await prisma.teamDocument.update({
+          where: { sessionId },
+          data: { editors },
+        })
+      }
     }
 
     return NextResponse.json({
