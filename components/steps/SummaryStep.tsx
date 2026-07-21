@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Eye, EyeOff, FileCheck2, Share2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Eye, EyeOff, FileCheck2 } from 'lucide-react'
 
 interface SummaryStepProps {
   userId: string
@@ -123,6 +123,7 @@ export default function SummaryStep({
   }
 
   return (
+    <div className="space-y-6">
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* 왼쪽: 요약 편집 */}
       <div className="rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm">
@@ -236,20 +237,25 @@ export default function SummaryStep({
           </label>
         </div>
 
-        <button
-          onClick={handleShare}
-          disabled={!allChecked || isSharing || !summary.trim()}
-          className="flex items-center justify-center gap-2 rounded-xl bg-pine-700 px-5 py-3 font-semibold text-white transition-colors hover:bg-pine-600 disabled:cursor-not-allowed disabled:bg-zinc-300"
-        >
-          <Share2 className="h-4 w-4" />
-          {isSharing ? '공유 중…' : alreadyShared ? '수정 내용 다시 공유하기 →' : '동료에게 공유하기 →'}
-        </button>
-        {!allChecked && (
-          <p className="-mt-2 text-center text-xs text-zinc-400">
-            자기점검 항목을 모두 확인하면 공유할 수 있습니다.
-          </p>
-        )}
       </div>
+    </div>
+
+    {/* 다음 단계 (우측 하단, 공통 디자인) */}
+    <div className="flex items-center justify-end gap-3">
+      {!allChecked && (
+        <p className="text-xs text-zinc-400">
+          자기점검 항목을 모두 확인하면 공유할 수 있습니다.
+        </p>
+      )}
+      <button
+        onClick={handleShare}
+        disabled={!allChecked || isSharing || !summary.trim()}
+        className="flex items-center gap-2 rounded-xl bg-ink px-6 py-3 font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+      >
+        {isSharing ? '공유 중…' : alreadyShared ? '다시 공유하고 동료와 비교하기' : '공유하고 동료와 비교하기'}
+        <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
     </div>
   )
 }

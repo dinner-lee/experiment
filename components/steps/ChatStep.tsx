@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { UIMessage, DefaultChatTransport } from 'ai'
-import { BotMessageSquare, CircleHelp, SendHorizontal, Sparkles } from 'lucide-react'
+import { ArrowRight, BotMessageSquare, CircleHelp, SendHorizontal, Sparkles } from 'lucide-react'
 
 interface ChatStepProps {
   userId: string
@@ -110,12 +110,6 @@ export default function ChatStep({ userId, sessionId, userName, onComplete }: Ch
       alert('대화 내용이 없습니다. 대화를 먼저 시작해주세요.')
       return
     }
-    if (
-      userTurns < 2 &&
-      !confirm('아직 대화가 짧습니다. AI의 질문에 더 답하면 생각을 정교화할 수 있습니다.\n지금 종료하고 요약으로 넘어갈까요?')
-    ) {
-      return
-    }
 
     setIsSummarizing(true)
     const actualStartTime = startTime || Date.now()
@@ -200,9 +194,12 @@ export default function ChatStep({ userId, sessionId, userName, onComplete }: Ch
     const content = uiMessageText(msg)
     return !(msg.role === 'user' && (content === '시작' || content.trim() === ''))
   })
+  // 다음 단계 활성화 조건: 사용자가 3회 이상 답변
+  const userTurns = displayMessages.filter((msg) => msg.role === 'user').length
 
   return (
-    <div className="flex h-[calc(100vh-10.5rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
+    <div className="space-y-4">
+    <div className="flex h-[calc(100vh-15rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
         <div className="flex items-center gap-2">
           <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
@@ -288,16 +285,25 @@ export default function ChatStep({ userId, sessionId, userName, onComplete }: Ch
             전송
           </button>
         </form>
-        {displayMessages.length > 0 && (
-          <button
-            onClick={handleEndChat}
-            disabled={isLoading || isSummarizing}
-            className="mt-3 w-full rounded-xl bg-ink px-4 py-2.5 font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
-          >
-            {isSummarizing ? '대화를 요약하는 중…' : '대화 종료하고 요약 검토하기 →'}
-          </button>
-        )}
       </div>
+    </div>
+
+    {/* 다음 단계 (우측 하단, 공통 디자인) */}
+    <div className="flex items-center justify-end gap-3">
+      {userTurns < 3 && (
+        <p className="text-xs text-zinc-400">
+          AI의 질문에 3회 이상 답하면 다음 단계로 넘어갈 수 있습니다. (현재 {userTurns}회)
+        </p>
+      )}
+      <button
+        onClick={handleEndChat}
+        disabled={isLoading || isSummarizing || userTurns < 3}
+        className="flex items-center gap-2 rounded-xl bg-ink px-6 py-3 font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
+      >
+        {isSummarizing ? '대화를 요약하는 중…' : '대화 마치고 요약 검토하기'}
+        <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
     </div>
   )
 }
