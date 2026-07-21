@@ -98,9 +98,17 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-pine-200 bg-white shadow-2xl shadow-zinc-900/20">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between bg-pine-800 px-4 py-2.5 text-white">
-        <span className="flex items-center gap-2 text-sm font-semibold">
+      {/* 헤더 (글래스 효과) */}
+      <div className="relative flex items-center justify-between overflow-hidden bg-pine-800/85 px-4 py-2.5 text-white shadow-inner ring-1 ring-inset ring-white/20 backdrop-blur-xl">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/20 via-white/5 to-transparent"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-8 -top-10 h-24 w-24 rounded-full bg-white/15 blur-xl"
+        />
+        <span className="relative flex items-center gap-2 text-sm font-semibold">
           <StickyNote className="h-4 w-4" />내 의견
           {savedNotice && (
             <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium">
@@ -108,7 +116,7 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
             </span>
           )}
         </span>
-        <div className="flex items-center gap-1">
+        <div className="relative flex items-center gap-1">
           {!editing && (
             <button
               onClick={() => {
