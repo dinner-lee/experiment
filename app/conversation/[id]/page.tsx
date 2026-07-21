@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ArrowLeft, EyeOff, PenLine } from 'lucide-react'
+import FloatingMyOpinion from '@/components/FloatingMyOpinion'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -325,6 +326,11 @@ export default function ConversationDetailPage() {
             </div>
           )}
         </div>
+
+        {/* 동료 열람 시: 내 의견 플로팅 패널 (보면서 바로 수정) */}
+        {!isAuthor && userId && conversation.sessionId && (
+          <FloatingMyOpinion sessionId={conversation.sessionId} userId={userId} />
+        )}
 
         {/* 동료 열람 시: 내 의견 수정 유도 */}
         {!isAuthor && (
