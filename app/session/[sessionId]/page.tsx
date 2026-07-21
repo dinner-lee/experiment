@@ -178,7 +178,7 @@ export default function SessionPage() {
   // ── AI 비활성 세션: 질문에 답하기 (기존 탭 유지) ──
   return (
     <div className="flex min-h-screen flex-col bg-cream">
-      <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/95 font-display backdrop-blur">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pine-800 text-white">

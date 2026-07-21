@@ -82,9 +82,6 @@ export default function Home() {
                   결론을 함께 만들어가는 학습 공간입니다.
                 </p>
               </div>
-              <p className="relative mt-10 hidden text-xs text-pine-100/60 md:block">
-                선생님에게 안내받은 PIN 코드로 입장하세요.
-              </p>
             </div>
           </div>
 

@@ -25,14 +25,14 @@ export default function StepNav({
   onLogout,
 }: StepNavProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/95 font-display backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         {/* 로고 */}
         <div className="flex shrink-0 items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-pine-800 text-white">
             <Puzzle className="h-5 w-5" strokeWidth={2.2} />
           </div>
-          <span className="hidden text-base font-bold tracking-tight text-ink xl:block">
+          <span className="hidden text-xl font-bold tracking-tight text-ink xl:block">
             협력적 문제해결 지원 시스템
           </span>
         </div>
