@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Eye, EyeOff, Share2 } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, FileCheck2, Share2 } from 'lucide-react'
 
 interface SummaryStepProps {
   userId: string
@@ -126,7 +126,10 @@ export default function SummaryStep({
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
       {/* 왼쪽: 요약 편집 */}
       <div className="rounded-2xl border border-zinc-200/70 bg-white p-6 shadow-sm">
-        <h2 className="mb-1 text-lg font-bold text-ink">대화 요약 검토 및 수정</h2>
+        <h2 className="mb-1 flex items-center gap-2 text-lg font-bold text-ink">
+          <FileCheck2 className="h-5 w-5 text-pine-700" />
+          대화 요약 검토 및 수정
+        </h2>
         <p className="mb-5 text-sm leading-relaxed text-zinc-500">
           AI가 대화 내용을 여러분의 1인칭 시점으로 요약했습니다. 내 생각과 다르거나 빠진 부분이
           있다면 직접 고쳐주세요.

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { UIMessage, DefaultChatTransport } from 'ai'
-import { CheckCircle2, SendHorizontal, Sparkles } from 'lucide-react'
+import { CheckCircle2, History, SendHorizontal, Sparkles } from 'lucide-react'
 
 interface DebriefStepProps {
   userId: string
@@ -173,7 +173,10 @@ export default function DebriefStep({ userId, sessionId }: DebriefStepProps) {
   return (
     <div className="flex h-[calc(100vh-10.5rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
       <div className="border-b border-zinc-100 px-6 py-4">
-        <h2 className="text-lg font-bold text-ink">활동 돌아보기 (디브리핑)</h2>
+        <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
+          <History className="h-5 w-5 text-pine-700" />
+          활동 돌아보기 (디브리핑)
+        </h2>
         <p className="mt-0.5 text-xs text-zinc-500">
           AI와 함께 오늘의 활동을 점검하고, 생각의 변화와 추후 논의할 사항을 정리합니다.
         </p>

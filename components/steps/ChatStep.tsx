@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { UIMessage, DefaultChatTransport } from 'ai'
-import { CircleHelp, SendHorizontal, Sparkles } from 'lucide-react'
+import { BotMessageSquare, CircleHelp, SendHorizontal, Sparkles } from 'lucide-react'
 
 interface ChatStepProps {
   userId: string
@@ -205,7 +205,10 @@ export default function ChatStep({ userId, sessionId, userName, onComplete }: Ch
     <div className="flex h-[calc(100vh-10.5rem)] flex-col overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
         <div className="flex items-center gap-2">
-          <h2 className="text-lg font-bold text-ink">AI와 대화하며 생각 정교화하기</h2>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
+            <BotMessageSquare className="h-5 w-5 text-pine-700" />
+            AI와 대화하며 생각 정교화하기
+          </h2>
           <div className="relative">
             <button
               type="button"
