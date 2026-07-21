@@ -247,7 +247,7 @@ export default function SummaryStep({
         disabled={!allChecked || isSharing || !summary.trim()}
         className="flex items-center gap-2 rounded-xl bg-ink px-6 py-3 font-semibold text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:bg-zinc-300"
       >
-        {isSharing ? '공유 중…' : alreadyShared ? '다시 공유하고 동료와 비교하기' : '공유하고 동료와 비교하기'}
+        {isSharing ? '공유 중…' : '공유하기'}
         <ArrowRight className="h-4 w-4" />
       </button>
     </div>

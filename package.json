@@ -14,7 +14,6 @@
     "@ai-sdk/react": "^3.0.3",
     "@prisma/client": "^6.19.1",
     "@types/pg": "^8.16.0",
-    "@xenova/transformers": "^2.17.2",
     "ai": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

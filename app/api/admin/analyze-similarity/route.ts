@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { pipeline } from '@xenova/transformers'
+// 서버리스(Vercel) 환경에서 함수 실행 시간 여유 확보
+export const maxDuration = 60
 import OpenAI from 'openai'
 
 const openai = new OpenAI({
@@ -146,17 +147,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('Loading sentence transformer model...')
-
-    // Sentence-Transformers 모델 로드 (한국어 지원 모델)
-    // 'Xenova/paraphrase-multilingual-MiniLM-L12-v2'는 한국어를 포함한 다국어 모델
-    const extractor = await pipeline(
-      'feature-extraction',
-      'Xenova/paraphrase-multilingual-MiniLM-L12-v2'
-    )
-
-    console.log('Model loaded. Processing summaries...')
-
     // 각 요약을 문장 단위로 분리
     const sentencesBySummary = validSummaries.map((summary: string) => {
       const sentences = splitIntoSentences(summary)
@@ -189,101 +179,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 배치로 임베딩 생성 (메모리 효율성을 위해)
+    // OpenAI 임베딩 API로 문장 임베딩 생성
+    // (로컬 모델 다운로드가 없어 서버리스 환경에서도 빠르게 동작. 한국어 지원, 정규화된 벡터 반환)
     const embeddings: number[][] = []
-    const batchSize = 32
-
-    // 텐서를 배열로 변환하는 헬퍼 함수
-    const tensorToArray = (tensor: any): number[] => {
-      if (Array.isArray(tensor) && tensor.length > 0) {
-        // 이미 배열인 경우
-        if (typeof tensor[0] === 'number') {
-          return tensor as number[]
-        }
-        // 중첩 배열인 경우 평탄화
-        return tensor.flat() as number[]
-      }
-      // 텐서 객체인 경우 data 속성 확인
-      if (tensor && tensor.data) {
-        return Array.from(tensor.data)
-      }
-      // toArray 메서드가 있는 경우
-      if (tensor && typeof tensor.toArray === 'function') {
-        return tensor.toArray()
-      }
-      return []
-    }
+    const batchSize = 512
 
     for (let i = 0; i < allSentences.length; i += batchSize) {
       const batch = allSentences.slice(i, i + batchSize)
-      console.log(`Processing batch ${Math.floor(i / batchSize) + 1}, sentences:`, batch.length)
 
       try {
-        const batchEmbeddings = await extractor(batch, { pooling: 'mean', normalize: true })
-
-        // 임베딩 형식 확인 및 변환
-        console.log('Batch embeddings type:', typeof batchEmbeddings, Array.isArray(batchEmbeddings))
-
-        // @xenova/transformers는 텐서 객체를 반환합니다
-        // 텐서의 data 속성이나 toArray 메서드를 사용해야 합니다
-        let processedEmbeddings: number[][] = []
-
-        if (Array.isArray(batchEmbeddings)) {
-          // 배열인 경우 - 각 요소가 텐서일 수 있음
-          for (const emb of batchEmbeddings) {
-            const embArray = tensorToArray(emb)
-            if (embArray.length > 0) {
-              processedEmbeddings.push(embArray)
-            } else {
-              console.warn('Empty embedding array found for sentence:', batch[processedEmbeddings.length])
-            }
-          }
-        } else {
-          // 단일 텐서인 경우 - 텐서 객체의 data 속성 확인
-          if (batchEmbeddings && typeof batchEmbeddings === 'object') {
-            // 텐서 객체인 경우
-            if ('data' in batchEmbeddings && Array.isArray(batchEmbeddings.data)) {
-              // 2D 배열인 경우 (batch_size x embedding_dim)
-              if (Array.isArray(batchEmbeddings.data[0])) {
-                processedEmbeddings = batchEmbeddings.data as number[][]
-              } else {
-                // 1D 배열인 경우 (단일 문장)
-                processedEmbeddings = [batchEmbeddings.data as number[]]
-              }
-            } else if ('tolist' in batchEmbeddings && typeof batchEmbeddings.tolist === 'function') {
-              // tolist 메서드가 있는 경우
-              const list = batchEmbeddings.tolist()
-              if (Array.isArray(list[0])) {
-                processedEmbeddings = list as number[][]
-              } else {
-                processedEmbeddings = [list as number[]]
-              }
-            } else {
-              // 다른 형식 시도
-              const embArray = tensorToArray(batchEmbeddings)
-              if (embArray.length > 0) {
-                processedEmbeddings = [embArray]
-              }
-            }
-          } else {
-            const embArray = tensorToArray(batchEmbeddings)
-            if (embArray.length > 0) {
-              processedEmbeddings = [embArray]
-            }
-          }
-        }
-
-        if (processedEmbeddings.length !== batch.length) {
-          console.error(`Embedding count mismatch: expected ${batch.length}, got ${processedEmbeddings.length}`)
-        }
-
-        embeddings.push(...processedEmbeddings)
-
-        console.log(`Batch ${Math.floor(i / batchSize) + 1} processed, embeddings so far:`, embeddings.length)
+        const response = await openai.embeddings.create({
+          model: 'text-embedding-3-small',
+          input: batch,
+        })
+        // index 기준으로 정렬해 입력 순서를 보장
+        const sorted = [...response.data].sort((a, b) => a.index - b.index)
+        embeddings.push(...sorted.map((d) => d.embedding))
       } catch (error) {
-        console.error('Error processing batch:', error)
+        console.error('Error generating embeddings:', error)
         throw error
       }
+    }
+
+    if (embeddings.length !== allSentences.length) {
+      throw new Error(
+        `임베딩 수가 일치하지 않습니다: expected ${allSentences.length}, got ${embeddings.length}`
+      )
     }
 
     console.log('Embeddings generated. Total embeddings:', embeddings.length)
@@ -525,78 +446,22 @@ export async function POST(request: NextRequest) {
     console.log('All concepts:', allConcepts)
     console.log('Concepts by summary:', conceptsBySummary)
 
-    // 개념 임베딩 생성 (문장 임베딩과 동일한 방식으로 처리)
-    let conceptEmbeddings: number[][] = []
+    // 개념 임베딩 생성 (문장 임베딩과 동일하게 OpenAI 임베딩 API 사용)
+    const conceptEmbeddings: number[][] = []
     if (allConcepts.length > 0) {
       console.log('Generating embeddings for concepts...')
-      const batchSize = 32
+      const conceptBatchSize = 512
 
-      for (let i = 0; i < allConcepts.length; i += batchSize) {
-        const batch = allConcepts.slice(i, i + batchSize)
-        console.log(`Processing concept batch ${Math.floor(i / batchSize) + 1}, concepts:`, batch.length)
+      for (let i = 0; i < allConcepts.length; i += conceptBatchSize) {
+        const batch = allConcepts.slice(i, i + conceptBatchSize)
 
         try {
-          const batchEmbeddings = await extractor(batch, { pooling: 'mean', normalize: true })
-
-          console.log('Concept batch embeddings type:', typeof batchEmbeddings, Array.isArray(batchEmbeddings))
-
-          let processedEmbeddings: number[][] = []
-
-          if (Array.isArray(batchEmbeddings)) {
-            // 배열인 경우 - 각 요소가 텐서일 수 있음
-            for (const emb of batchEmbeddings) {
-              const embArray = tensorToArray(emb)
-              if (embArray.length > 0) {
-                processedEmbeddings.push(embArray)
-              } else {
-                console.warn('Empty embedding array found for concept:', batch[processedEmbeddings.length])
-              }
-            }
-          } else {
-            // 단일 텐서인 경우 - 텐서 객체의 data 속성 확인
-            if (batchEmbeddings && typeof batchEmbeddings === 'object') {
-              // 텐서 객체인 경우
-              if ('data' in batchEmbeddings && Array.isArray(batchEmbeddings.data)) {
-                // 2D 배열인 경우 (batch_size x embedding_dim)
-                if (Array.isArray(batchEmbeddings.data[0])) {
-                  processedEmbeddings = batchEmbeddings.data as number[][]
-                } else {
-                  // 1D 배열인 경우 (단일 개념)
-                  processedEmbeddings = [batchEmbeddings.data as number[]]
-                }
-              } else if ('tolist' in batchEmbeddings && typeof batchEmbeddings.tolist === 'function') {
-                // tolist 메서드가 있는 경우
-                const list = batchEmbeddings.tolist()
-                if (Array.isArray(list[0])) {
-                  processedEmbeddings = list as number[][]
-                } else {
-                  processedEmbeddings = [list as number[]]
-                }
-              } else {
-                // 다른 형식 시도
-                const embArray = tensorToArray(batchEmbeddings)
-                if (embArray.length > 0) {
-                  processedEmbeddings = [embArray]
-                }
-              }
-            } else {
-              const embArray = tensorToArray(batchEmbeddings)
-              if (embArray.length > 0) {
-                processedEmbeddings = [embArray]
-              }
-            }
-          }
-
-          if (processedEmbeddings.length !== batch.length) {
-            console.error(`Concept embedding count mismatch: expected ${batch.length}, got ${processedEmbeddings.length}`)
-            // 부족한 임베딩을 빈 배열로 채우기
-            while (processedEmbeddings.length < batch.length) {
-              processedEmbeddings.push([])
-            }
-          }
-
-          conceptEmbeddings.push(...processedEmbeddings)
-          console.log(`Concept batch ${Math.floor(i / batchSize) + 1} processed, embeddings so far:`, conceptEmbeddings.length)
+          const response = await openai.embeddings.create({
+            model: 'text-embedding-3-small',
+            input: batch,
+          })
+          const sorted = [...response.data].sort((a, b) => a.index - b.index)
+          conceptEmbeddings.push(...sorted.map((d) => d.embedding))
         } catch (error) {
           console.error('Error processing concept embeddings batch:', error)
           // 에러 발생 시 빈 임베딩으로 채우기
