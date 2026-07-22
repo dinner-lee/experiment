@@ -62,11 +62,12 @@ export default function DebriefStep({ userId, sessionId }: DebriefStepProps) {
           data: {
             mode: 'debrief',
             isFirstMessage,
+            sessionId,
             context: context || { summary: '', teamDocument: '' },
           },
         },
       }),
-    [isFirstMessage, context]
+    [isFirstMessage, context, sessionId]
   )
 
   const { messages, sendMessage, status } = useChat<UIMessage>({

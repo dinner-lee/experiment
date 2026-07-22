@@ -66,6 +66,15 @@ export default function AdminPage() {
   const [showSharedAnswers, setShowSharedAnswers] = useState(true) // 답변 공유하기 탭 표시 여부 (AI 비활성화 시)
   const [sessions, setSessions] = useState<Session[]>([])
   const [selectedPin, setSelectedPin] = useState<string | null>(null)
+  // 세션별 AI 대화 설정 (모델·첫 질문·시스템 프롬프트)
+  const [sessionHasAIChat, setSessionHasAIChat] = useState(true)
+  const [showAISettings, setShowAISettings] = useState(false)
+  const [savingAISettings, setSavingAISettings] = useState(false)
+  const [aiSettings, setAiSettings] = useState({
+    chatModel: '',
+    chatFirstQuestion: '',
+    chatSystemPrompt: '',
+  })
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [userLogs, setUserLogs] = useState<UserLog[]>([])
   const [showLogs, setShowLogs] = useState(false)
@@ -276,6 +285,15 @@ export default function AdminPage() {
       }
       const sessionData = await sessionResponse.json()
       const sessionId = sessionData.session.id
+
+      // AI 대화 설정 상태 반영
+      setSessionHasAIChat(sessionData.session.hasAIChat !== false)
+      setAiSettings({
+        chatModel: sessionData.session.chatModel || '',
+        chatFirstQuestion: sessionData.session.chatFirstQuestion || '',
+        chatSystemPrompt: sessionData.session.chatSystemPrompt || '',
+      })
+      setShowAISettings(false)
       
       console.log('Admin: Fetching conversations for PIN:', pin, 'SessionId:', sessionId)
       
@@ -706,12 +724,103 @@ export default function AdminPage() {
                       {conversations.length}개 대화 로그가 표시됩니다.
                     </p>
                   </div>
-                  <button
-                    onClick={() => setSelectedPin(null)}
-                    className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  <div className="flex items-center gap-3">
+                    {sessionHasAIChat && (
+                      <button
+                        onClick={() => setShowAISettings(!showAISettings)}
+                        className="rounded-md border border-zinc-300 bg-white px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      >
+                        {showAISettings ? 'AI 대화 설정 접기' : 'AI 대화 설정'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setSelectedPin(null)}
+                      className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200"
+                    >
+                      닫기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* AI 대화 설정 (세션별 모델·첫 질문·시스템 프롬프트) */}
+            {sessionHasAIChat && showAISettings && (
+              <div className="space-y-4 border-b border-zinc-200 bg-zinc-50 px-4 py-4 dark:border-zinc-800 dark:bg-zinc-800/50">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    AI 모델
+                  </label>
+                  <select
+                    value={aiSettings.chatModel}
+                    onChange={(e) => setAiSettings({ ...aiSettings, chatModel: e.target.value })}
+                    className="w-full max-w-xs rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
                   >
-                    닫기
+                    <option value="">기본값 (gpt-4o)</option>
+                    <option value="gpt-4o">gpt-4o</option>
+                    <option value="gpt-4o-mini">gpt-4o-mini</option>
+                    <option value="gpt-4.1">gpt-4.1</option>
+                    <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                    <option value="gpt-5">gpt-5</option>
+                    <option value="gpt-5-mini">gpt-5-mini</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    첫 질문 (비워두면 기본 질문 사용)
+                  </label>
+                  <textarea
+                    value={aiSettings.chatFirstQuestion}
+                    onChange={(e) =>
+                      setAiSettings({ ...aiSettings, chatFirstQuestion: e.target.value })
+                    }
+                    rows={3}
+                    placeholder="자하연 학생식당 공간 재구성 과제를 어떻게 해결하는 것이 좋을까요? 공간 재설계 방안을 설명하고, 그렇게 재구성한 이유를 한 문단(5문장 이상)으로 제시하세요."
+                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black placeholder:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    후속 대화 시스템 프롬프트 (비워두면 기본 소크라테스식 프롬프트 사용)
+                  </label>
+                  <textarea
+                    value={aiSettings.chatSystemPrompt}
+                    onChange={(e) =>
+                      setAiSettings({ ...aiSettings, chatSystemPrompt: e.target.value })
+                    }
+                    rows={6}
+                    placeholder="예: 당신은 소크라테스의 산파술을 사용하는 교사입니다. 사용자의 마지막 답변을 참고하여 한 번에 하나씩 심화 질문을 하세요…"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black placeholder:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={async () => {
+                      if (!selectedPin) return
+                      setSavingAISettings(true)
+                      try {
+                        const response = await fetch(`/api/admin/sessions/${selectedPin}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(aiSettings),
+                        })
+                        const data = await response.json()
+                        if (!response.ok) throw new Error(data.error || '저장에 실패했습니다')
+                        alert('AI 대화 설정이 저장되었습니다. 이후 시작되는 대화부터 적용됩니다.')
+                      } catch (error: any) {
+                        alert(`저장에 실패했습니다: ${error.message || '알 수 없는 오류'}`)
+                      } finally {
+                        setSavingAISettings(false)
+                      }
+                    }}
+                    disabled={savingAISettings}
+                    className="rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:bg-zinc-400"
+                  >
+                    {savingAISettings ? '저장 중…' : '설정 저장'}
                   </button>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    빈 칸으로 저장하면 해당 항목은 기본값으로 되돌아갑니다.
+                  </p>
                 </div>
               </div>
             )}

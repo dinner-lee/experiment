@@ -32,9 +32,9 @@ export default function ChatStep({ userId, sessionId, userName, onComplete }: Ch
       new DefaultChatTransport({
         api: '/api/chat',
         headers: { 'Content-Type': 'application/json' },
-        body: { data: { isFirstMessage } },
+        body: { data: { isFirstMessage, sessionId } },
       }),
-    [isFirstMessage]
+    [isFirstMessage, sessionId]
   )
 
   const { messages, sendMessage, status } = useChat<UIMessage>({

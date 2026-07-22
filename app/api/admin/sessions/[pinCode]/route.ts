@@ -26,6 +26,10 @@ export async function GET(
       select: {
         id: true,
         pinCode: true,
+        hasAIChat: true,
+        chatModel: true,
+        chatFirstQuestion: true,
+        chatSystemPrompt: true,
         users: { select: { id: true, name: true } },
         _count: {
           select: { conversations: { where: { isShared: true } } },
@@ -41,6 +45,10 @@ export async function GET(
       session: {
         id: session.id,
         pinCode: session.pinCode,
+        hasAIChat: session.hasAIChat,
+        chatModel: session.chatModel,
+        chatFirstQuestion: session.chatFirstQuestion,
+        chatSystemPrompt: session.chatSystemPrompt,
         userCount: session.users.length,
         users: session.users,
         conversationCount: session._count.conversations,
@@ -59,3 +67,48 @@ export async function GET(
   }
 }
 
+
+// 세션별 AI 대화 설정 수정 (모델, 첫 질문, 시스템 프롬프트)
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ pinCode: string }> | { pinCode: string } }
+) {
+  try {
+    const resolvedParams = await Promise.resolve(params)
+    const { pinCode } = resolvedParams
+
+    if (!pinCode) {
+      return NextResponse.json({ error: 'PIN code is required' }, { status: 400 })
+    }
+
+    const { chatModel, chatFirstQuestion, chatSystemPrompt } = await request.json()
+
+    // 빈 문자열은 null로 저장 → 기본값 사용
+    const normalize = (v: unknown) =>
+      typeof v === 'string' && v.trim() !== '' ? v.trim() : null
+
+    const session = await prisma.session.update({
+      where: { pinCode },
+      data: {
+        chatModel: normalize(chatModel),
+        chatFirstQuestion: normalize(chatFirstQuestion),
+        chatSystemPrompt: normalize(chatSystemPrompt),
+      },
+      select: {
+        id: true,
+        pinCode: true,
+        chatModel: true,
+        chatFirstQuestion: true,
+        chatSystemPrompt: true,
+      },
+    })
+
+    return NextResponse.json({ session })
+  } catch (error: any) {
+    console.error('Failed to update session chat settings:', error)
+    return NextResponse.json(
+      { error: 'AI 대화 설정 저장에 실패했습니다', details: error.message },
+      { status: 500 }
+    )
+  }
+}
