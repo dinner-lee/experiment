@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, type ReactNode } from 'react'
+import { DEFAULT_FIRST_QUESTION, DEFAULT_FOLLOWUP_PROMPT } from '@/lib/chatPrompts'
 import { format } from 'date-fns'
 import ConceptNetworkGraph from '@/components/ConceptNetworkGraph'
 
@@ -286,12 +287,12 @@ export default function AdminPage() {
       const sessionData = await sessionResponse.json()
       const sessionId = sessionData.session.id
 
-      // AI 대화 설정 상태 반영
+      // AI 대화 설정 상태 반영 (미설정 시 실제 기본 프롬프트 전문을 표시)
       setSessionHasAIChat(sessionData.session.hasAIChat !== false)
       setAiSettings({
         chatModel: sessionData.session.chatModel || '',
-        chatFirstQuestion: sessionData.session.chatFirstQuestion || '',
-        chatSystemPrompt: sessionData.session.chatSystemPrompt || '',
+        chatFirstQuestion: sessionData.session.chatFirstQuestion || DEFAULT_FIRST_QUESTION,
+        chatSystemPrompt: sessionData.session.chatSystemPrompt || DEFAULT_FOLLOWUP_PROMPT,
       })
       setShowAISettings(false)
       
@@ -763,11 +764,19 @@ export default function AdminPage() {
                     <option value="gpt-4.1-mini">gpt-4.1-mini</option>
                     <option value="gpt-5">gpt-5</option>
                     <option value="gpt-5-mini">gpt-5-mini</option>
+                    <option value="gpt-5.1">gpt-5.1</option>
+                    <option value="gpt-5.2">gpt-5.2</option>
+                    <option value="gpt-5.4">gpt-5.4</option>
+                    <option value="gpt-5.4-mini">gpt-5.4-mini</option>
+                    <option value="gpt-5.5">gpt-5.5</option>
+                    <option value="gpt-5.6-luna">gpt-5.6-luna</option>
+                    <option value="gpt-5.6-sol">gpt-5.6-sol</option>
+                    <option value="gpt-5.6-terra">gpt-5.6-terra</option>
                   </select>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    첫 질문 (비워두면 기본 질문 사용)
+                    첫 질문
                   </label>
                   <textarea
                     value={aiSettings.chatFirstQuestion}
@@ -775,22 +784,20 @@ export default function AdminPage() {
                       setAiSettings({ ...aiSettings, chatFirstQuestion: e.target.value })
                     }
                     rows={3}
-                    placeholder="자하연 학생식당 공간 재구성 과제를 어떻게 해결하는 것이 좋을까요? 공간 재설계 방안을 설명하고, 그렇게 재구성한 이유를 한 문단(5문장 이상)으로 제시하세요."
-                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black placeholder:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    후속 대화 시스템 프롬프트 (비워두면 기본 소크라테스식 프롬프트 사용)
+                    후속 대화 시스템 프롬프트 (현재 적용 중인 전문)
                   </label>
                   <textarea
                     value={aiSettings.chatSystemPrompt}
                     onChange={(e) =>
                       setAiSettings({ ...aiSettings, chatSystemPrompt: e.target.value })
                     }
-                    rows={6}
-                    placeholder="예: 당신은 소크라테스의 산파술을 사용하는 교사입니다. 사용자의 마지막 답변을 참고하여 한 번에 하나씩 심화 질문을 하세요…"
-                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black placeholder:text-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+                    rows={14}
+                    className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-xs leading-relaxed text-black dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
                   />
                 </div>
                 <div className="flex items-center gap-3">
@@ -799,10 +806,22 @@ export default function AdminPage() {
                       if (!selectedPin) return
                       setSavingAISettings(true)
                       try {
+                        // 기본 프롬프트와 동일한 내용은 null(기본값 사용)로 저장
+                        const payload = {
+                          chatModel: aiSettings.chatModel,
+                          chatFirstQuestion:
+                            aiSettings.chatFirstQuestion.trim() === DEFAULT_FIRST_QUESTION.trim()
+                              ? ''
+                              : aiSettings.chatFirstQuestion,
+                          chatSystemPrompt:
+                            aiSettings.chatSystemPrompt.trim() === DEFAULT_FOLLOWUP_PROMPT.trim()
+                              ? ''
+                              : aiSettings.chatSystemPrompt,
+                        }
                         const response = await fetch(`/api/admin/sessions/${selectedPin}`, {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(aiSettings),
+                          body: JSON.stringify(payload),
                         })
                         const data = await response.json()
                         if (!response.ok) throw new Error(data.error || '저장에 실패했습니다')
@@ -818,8 +837,21 @@ export default function AdminPage() {
                   >
                     {savingAISettings ? '저장 중…' : '설정 저장'}
                   </button>
+                  <button
+                    onClick={() =>
+                      setAiSettings({
+                        chatModel: '',
+                        chatFirstQuestion: DEFAULT_FIRST_QUESTION,
+                        chatSystemPrompt: DEFAULT_FOLLOWUP_PROMPT,
+                      })
+                    }
+                    className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                  >
+                    기본값으로 되돌리기
+                  </button>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    빈 칸으로 저장하면 해당 항목은 기본값으로 되돌아갑니다.
+                    표시된 내용이 실제 적용 중인 프롬프트입니다. 수정 후 저장하면 이 세션의 이후
+                    대화부터 적용됩니다.
                   </p>
                 </div>
               </div>
