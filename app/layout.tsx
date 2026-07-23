@@ -34,9 +34,9 @@ export default function RootLayout({
         />
         <link
           rel="preload"
-          href="/fonts/HakgyoansimWoojuR.woff2"
+          href="/fonts/NexonLv1Gothic.woff"
           as="font"
-          type="font/woff2"
+          type="font/woff"
           crossOrigin="anonymous"
         />
       </head>
