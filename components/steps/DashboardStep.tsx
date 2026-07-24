@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
   CalendarDays,
@@ -13,6 +12,7 @@ import {
 import StaticConceptGraph from '@/components/StaticConceptGraph'
 import { colorBasisOf, useConceptGraph } from '@/lib/useConceptGraph'
 import { buildColorMap, USER_COLORS } from '@/lib/userColors'
+import ConversationModal from '@/components/ConversationModal'
 
 interface DashboardStepProps {
   userId: string
@@ -46,16 +46,18 @@ interface DashboardSession {
 function SessionCard({
   session,
   pinCode,
+  userId,
   onOpenCompare,
   onJoin,
 }: {
   session: DashboardSession
   pinCode: string | null
+  userId: string
   onOpenCompare?: () => void // 현재 참여 중인 세션에만 제공
   onJoin?: () => void // 현재 참여 중인 세션에만 제공
 }) {
-  const router = useRouter()
   const [expanded, setExpanded] = useState(false)
+  const [modalConversationId, setModalConversationId] = useState<string | null>(null)
 
   // 멤버 + 의견 작성자 합집합 기준 — 콘셉트 그래프 색상과 항상 일치
   const colorMap = useMemo(
@@ -86,6 +88,17 @@ function SessionCard({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200/70 bg-white shadow-sm transition-shadow hover:shadow-md">
+      {/* 멤버 의견 팝업 모달 (배지로 멤버 간 전환) */}
+      {modalConversationId && (
+        <ConversationModal
+          conversations={session.conversations}
+          initialId={modalConversationId}
+          viewerId={userId}
+          sessionId={session.id}
+          colorOf={colorOf}
+          onClose={() => setModalConversationId(null)}
+        />
+      )}
       <div
         onClick={handleCardClick}
         className="flex cursor-pointer flex-wrap items-center gap-x-8 gap-y-3 px-6 py-5"
@@ -186,10 +199,10 @@ function SessionCard({
                     key={conv.id}
                     onClick={(e) => {
                       e.stopPropagation()
-                      // 텍스트를 드래그(선택) 중이면 상세로 이동하지 않음
+                      // 텍스트를 드래그(선택) 중이면 열지 않음
                       const selection = window.getSelection()
                       if (selection && !selection.isCollapsed) return
-                      router.push(`/conversation/${conv.id}`)
+                      setModalConversationId(conv.id)
                     }}
                     className="cursor-pointer rounded-xl border border-zinc-200/70 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
                   >
@@ -307,6 +320,7 @@ export default function DashboardStep({
           key={session.id}
           session={session}
           pinCode={pinCode}
+          userId={userId}
           onOpenCompare={session.isCurrent ? onOpenCompare : undefined}
           onJoin={session.isCurrent ? onJoin : undefined}
         />

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
   ArrowRight,
@@ -15,6 +14,7 @@ import {
 import StaticConceptGraph from '@/components/StaticConceptGraph'
 import { colorBasisOf, useConceptGraph } from '@/lib/useConceptGraph'
 import { buildColorMap, USER_COLORS } from '@/lib/userColors'
+import ConversationModal from '@/components/ConversationModal'
 
 interface CompareStepProps {
   userId: string
@@ -40,7 +40,6 @@ interface SharedConversation {
 }
 
 export default function CompareStep({ userId, sessionId, userName, onNext }: CompareStepProps) {
-  const router = useRouter()
   const cacheKey = `cache:convs:${sessionId}:${userId}`
   // 마지막으로 받아둔 목록을 즉시 표시하고, 백그라운드에서 최신 데이터로 갱신
   const [cached] = useState<{ conversations: SharedConversation[]; pinCode: string | null } | null>(
@@ -60,6 +59,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
   const [currentPinCode, setCurrentPinCode] = useState<string | null>(cached?.pinCode || null)
   const [members, setMembers] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(!cached)
+  const [modalConversationId, setModalConversationId] = useState<string | null>(null)
 
   // 동료 열람 후 수정 유도
   const viewedPeerKey = `viewedPeer:${sessionId}:${userId}`
@@ -177,6 +177,25 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
 
   return (
     <div className="space-y-6">
+      {/* 멤버 의견 팝업 모달 (배지로 멤버 간 전환) */}
+      {modalConversationId && (
+        <ConversationModal
+          conversations={conversations}
+          initialId={modalConversationId}
+          viewerId={userId}
+          sessionId={sessionId}
+          colorOf={colorOf}
+          onClose={() => {
+            setModalConversationId(null)
+            // 동료 로그를 열람했다면 수정 유도 배너 표시
+            if (localStorage.getItem(viewedPeerKey) === '1') {
+              localStorage.removeItem(viewedPeerKey)
+              setShowRevisePrompt(true)
+            }
+          }}
+        />
+      )}
+
       {/* 동료 열람 후 수정 유도 배너 */}
       {showRevisePrompt && myConversation && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-pine-200 bg-pine-50 px-5 py-4">
@@ -231,10 +250,10 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
               <div
                 key={conv.id}
                 onClick={() => {
-                  // 텍스트를 드래그(선택) 중이면 상세로 이동하지 않음
+                  // 텍스트를 드래그(선택) 중이면 열지 않음
                   const selection = window.getSelection()
                   if (selection && !selection.isCollapsed) return
-                  router.push(`/conversation/${conv.id}`)
+                  setModalConversationId(conv.id)
                 }}
                 className="group cursor-pointer rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-pine-200 hover:shadow-md"
               >
