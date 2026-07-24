@@ -269,7 +269,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
                   {conv.revisionCount > 0 && (
                     <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                       <PenLine className="h-3 w-3" />
-                      {conv.revisionCount}회 수정됨
+                      수정됨
                     </span>
                   )}
                   <span

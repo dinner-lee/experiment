@@ -1,12 +1,23 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { FileText, Users } from 'lucide-react'
+import { buildColorMap, USER_COLORS } from '@/lib/userColors'
 
 interface TeamStepProps {
   userId: string
   sessionId: string
   userName: string
+}
+
+interface FinalOpinion {
+  id: string
+  userName: string
+  isMine: boolean
+  title: string
+  summary: string
+  pinCode?: string
+  revisionCount: number
 }
 
 const TEMPLATE = `[우리 팀의 문제 정의]
@@ -37,6 +48,36 @@ export default function TeamStep({ userId, sessionId, userName }: TeamStepProps)
   const [content, setContent] = useState(cached?.content || '')
   const [editors, setEditors] = useState<{ userId: string; name: string }[]>([])
   const [loading, setLoading] = useState(!cached)
+
+  // 팀원들의 최종 버전 의견 (문서 작성 시 참고용)
+  const [opinions, setOpinions] = useState<FinalOpinion[]>([])
+  useEffect(() => {
+    let cancelled = false
+    const fetchOpinions = async () => {
+      try {
+        const response = await fetch(`/api/conversations/${sessionId}?viewerId=${userId}`)
+        if (!response.ok || cancelled) return
+        const data = await response.json()
+        const pin = data.currentPinCode
+        setOpinions(
+          (data.conversations || []).filter((c: FinalOpinion & { pinCode?: string }) => c.pinCode === pin)
+        )
+      } catch (error) {
+        console.error('Failed to fetch final opinions:', error)
+      }
+    }
+    fetchOpinions()
+    const interval = setInterval(fetchOpinions, 10000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [sessionId, userId])
+
+  const opinionColorMap = useMemo(
+    () => buildColorMap(opinions.map((o) => o.userName)),
+    [opinions]
+  )
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'merged'>('idle')
 
   // 폴링/디바운스 콜백에서 최신 상태를 참조하기 위한 ref
@@ -153,6 +194,58 @@ export default function TeamStep({ userId, sessionId, userName }: TeamStepProps)
 
   return (
     <div className="space-y-6">
+      {/* 팀원들의 최종 버전 의견 (참고용) */}
+      {opinions.length > 0 && (
+        <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
+          <div className="border-b border-zinc-100 px-6 py-4">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
+              <Users className="h-5 w-5 text-pine-700" />
+              우리 팀의 최종 의견
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              각자 수정을 거친 최종 버전입니다. 이를 바탕으로 팀의 공동 결론을 작성하세요.
+            </p>
+          </div>
+          <div className="grid gap-4 p-6 sm:grid-cols-2">
+            {opinions.map((op, i) => (
+              <div
+                key={op.id}
+                data-peer-content={!op.isMine ? '' : undefined}
+                className="rounded-xl border border-zinc-200/70 bg-zinc-50/50 p-4"
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={{
+                      backgroundColor:
+                        opinionColorMap.get(op.userName.trim()) ||
+                        USER_COLORS[i % USER_COLORS.length],
+                    }}
+                  >
+                    {op.userName.substring(0, 1)}
+                  </span>
+                  <span className="text-sm font-semibold text-zinc-700">{op.userName}</span>
+                  {op.isMine && (
+                    <span className="rounded-full bg-pine-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      나
+                    </span>
+                  )}
+                  {op.revisionCount > 0 && (
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                      수정됨
+                    </span>
+                  )}
+                </div>
+                <p className="mb-1 text-sm font-semibold leading-snug text-ink">
+                  {op.title || '(제목 없음)'}
+                </p>
+                <p className="text-sm leading-relaxed text-zinc-600">{op.summary}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-6 py-4">
           <div>

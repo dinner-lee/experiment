@@ -96,9 +96,6 @@ export default function DashboardStep({
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl text-ink">내 학습 공간</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            세션 카드를 누르면 동료와 비교하기(3단계)로 이동합니다.
-          </p>
         </div>
         <button
           onClick={onStart}

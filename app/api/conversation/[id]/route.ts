@@ -152,18 +152,16 @@ export async function PATCH(
     if (title !== undefined) updateData.title = title
     if (summary !== undefined) updateData.summary = summary
 
-    // 동료 의견 비교 후 명시적 수정: 이전 요약을 수정 이력에 보존
+    // 동료 의견 비교 후 명시적 수정: 최초 버전만 이력에 보존 (최종 버전은 summary 필드 자체)
     if (revise && summary !== undefined) {
       const prevRevisions = Array.isArray(conversation.revisions) ? conversation.revisions : []
-      updateData.revisions = [
-        ...prevRevisions,
-        {
-          summary: conversation.summary,
-          editedAt: new Date().toISOString(),
-          phase: 'after_compare',
-          reason: revisionReason || null,
-        },
-      ]
+      const firstVersion = prevRevisions[0] ?? {
+        summary: conversation.summary,
+        editedAt: new Date().toISOString(),
+        phase: 'original',
+        reason: revisionReason || null,
+      }
+      updateData.revisions = [firstVersion]
     }
 
     // 대화 업데이트

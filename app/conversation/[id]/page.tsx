@@ -272,22 +272,17 @@ export default function ConversationDetailPage() {
             <p className="leading-relaxed text-zinc-700">{conversation.summary}</p>
           )}
 
-          {/* 수정 이력 */}
+          {/* 최초 버전 (수정된 경우에만 표시, 위 요약이 최종 버전) */}
           {revisions.length > 0 && (
             <details className="mt-4 rounded-xl bg-zinc-50 px-4 py-3">
               <summary className="cursor-pointer text-sm font-medium text-zinc-600">
-                수정 이력 {revisions.length}건 보기
+                최초 버전 보기
               </summary>
-              <div className="mt-3 space-y-3">
-                {revisions.map((rev, i) => (
-                  <div key={i} className="border-l-2 border-zinc-300 pl-3">
-                    <p className="text-xs text-zinc-400">
-                      {format(new Date(rev.editedAt), 'MM/dd HH:mm')} 이전 버전
-                      {rev.reason && ` · ${rev.reason}`}
-                    </p>
-                    <p className="mt-1 text-sm leading-relaxed text-zinc-600">{rev.summary}</p>
-                  </div>
-                ))}
+              <div className="mt-3 border-l-2 border-zinc-300 pl-3">
+                <p className="text-xs text-zinc-400">
+                  {format(new Date(revisions[0].editedAt), 'MM/dd HH:mm')} 작성된 최초 버전
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-zinc-600">{revisions[0].summary}</p>
               </div>
             </details>
           )}
