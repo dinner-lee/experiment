@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as d3 from 'd3'
 
 export interface GraphUser {
@@ -47,7 +47,7 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
         type: 'user',
         label: user.name,
         color: user.color,
-        radius: 30,
+        radius: 34,
       })
     })
 
@@ -55,8 +55,8 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
       const activeUsers = users.filter((u) => concept.summaryIndices.includes(u.summaryIndex))
       if (activeUsers.length === 0) return
       const isShared = activeUsers.length > 1
-      const capRadius = isShared ? 18 : 15
-      const estimatedWidth = concept.label.length * 13 + 22
+      const capRadius = isShared ? 20 : 17
+      const estimatedWidth = concept.label.length * 15 + 26
       nodes.push({
         id: `concept-${concept.id}`,
         type: 'concept',
@@ -117,7 +117,10 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
       maxY = Math.max(maxY, (n.y || 0) + halfH)
     })
     const pad = 24
-    const viewBox = `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`
+    const vbX = minX - pad
+    const vbY = minY - pad
+    const vbW = maxX - minX + pad * 2
+    const vbH = maxY - minY + pad * 2
 
     const nodeById = new Map(nodes.map((n) => [n.id, n]))
     const resolvedLinks = links.map((l) => ({
@@ -126,8 +129,21 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
       shared: l.shared,
     }))
 
-    return { nodes, links: resolvedLinks, viewBox }
+    return { nodes, links: resolvedLinks, vbX, vbY, vbW, vbH }
   }, [users, concepts])
+
+  // 컨테이너 폭을 측정해 최소 표시 배율을 보장 (좁으면 축소 대신 스크롤)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerW, setContainerW] = useState(0)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const measure = () => setContainerW(el.clientWidth)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
 
   if (layout.nodes.length === 0) {
     return (
@@ -137,8 +153,19 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
     )
   }
 
+  // 배율: 카드에 맞으면 꽉 채우고(최대 1.4배), 넘치면 0.95배 아래로는 줄이지 않고 스크롤
+  const fitScale = containerW > 0 ? containerW / layout.vbW : 1
+  const scale = Math.min(Math.max(fitScale, 0.95), 1.4)
+
   return (
-    <svg viewBox={layout.viewBox} style={{ width: '100%', height }} role="img" aria-label="콘셉트 네트워크 그래프">
+    <div ref={containerRef} className="overflow-auto" style={{ maxHeight: height }}>
+    <svg
+      viewBox={`${layout.vbX} ${layout.vbY} ${layout.vbW} ${layout.vbH}`}
+      width={layout.vbW * scale}
+      height={layout.vbH * scale}
+      role="img"
+      aria-label="콘셉트 네트워크 그래프"
+    >
       {/* 링크 */}
       {layout.links.map((l, i) => (
         <line
@@ -195,7 +222,7 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
               <text
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={n.isShared ? 14 : 13}
+                fontSize={n.isShared ? 16 : 15}
                 fontWeight={n.isShared ? 600 : 400}
                 fill={n.isShared ? '#1e40af' : '#52525b'}
               >
@@ -220,7 +247,7 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
             <text
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize={n.label.length > 2 ? 13 : 15}
+              fontSize={n.label.length > 2 ? 15 : 17}
               fontWeight={700}
               fill="#18181b"
             >
@@ -229,5 +256,6 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
           </g>
         ))}
     </svg>
+    </div>
   )
 }
