@@ -66,7 +66,8 @@ function SessionCard({
 
   const { graph, loading: graphLoading, error: graphError, refresh, enough } = useConceptGraph(
     session.id,
-    session.conversations
+    session.conversations,
+    session.members.map((m) => m.name)
   )
 
   const handleCardClick = () => {

@@ -27,7 +27,10 @@ function signatureOf(conversations: GraphSourceConversation[]): string {
   )
 }
 
-async function analyze(conversations: GraphSourceConversation[]): Promise<GraphData> {
+async function analyze(
+  conversations: GraphSourceConversation[],
+  memberNames?: string[]
+): Promise<GraphData> {
   const response = await fetch('/api/admin/analyze-similarity', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -36,7 +39,10 @@ async function analyze(conversations: GraphSourceConversation[]): Promise<GraphD
   const data = await response.json()
   if (!response.ok) throw new Error(data.error || '개념 분석에 실패했습니다')
 
-  const colorMap = buildColorMap(conversations.map((c) => c.userName))
+  // 색상은 세션 멤버 전체 기준으로 배정해 아바타 색상과 항상 일치시킨다
+  const colorMap = buildColorMap(
+    memberNames && memberNames.length > 0 ? memberNames : conversations.map((c) => c.userName)
+  )
   const users: GraphUser[] = conversations.map((conv, idx) => ({
     id: conv.id,
     name: conv.userName?.trim() || `대화 ${idx + 1}`,
@@ -48,7 +54,12 @@ async function analyze(conversations: GraphSourceConversation[]): Promise<GraphD
 }
 
 // 공유된 의견들로부터 콘셉트 네트워크 그래프 데이터를 생성·캐시하는 훅
-export function useConceptGraph(sessionId: string, conversations: GraphSourceConversation[]) {
+// memberNames: 색상 배정 기준 (세션 멤버 전체 — 아바타 색상과 일치)
+export function useConceptGraph(
+  sessionId: string,
+  conversations: GraphSourceConversation[],
+  memberNames?: string[]
+) {
   const cacheKey = `cache:cgraph:${sessionId}`
   const [data, setData] = useState<GraphData | null>(null)
   const [loading, setLoading] = useState(false)
@@ -80,7 +91,7 @@ export function useConceptGraph(sessionId: string, conversations: GraphSourceCon
         const flightKey = `${sessionId}:${sig}`
         let promise = inflight.get(flightKey)
         if (!promise || force) {
-          promise = analyze(conversations)
+          promise = analyze(conversations, memberNames)
           inflight.set(flightKey, promise)
           promise.finally(() => inflight.delete(flightKey))
         }
@@ -98,7 +109,7 @@ export function useConceptGraph(sessionId: string, conversations: GraphSourceCon
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sessionId, cacheKey, signatureOf(conversations)]
+    [sessionId, cacheKey, signatureOf(conversations), (memberNames || []).join('|')]
   )
 
   // 공유 의견이 2개 이상이면 자동 실행 (캐시가 유효하면 즉시 표시)

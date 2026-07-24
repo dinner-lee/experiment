@@ -58,6 +58,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
     cached?.conversations || []
   )
   const [currentPinCode, setCurrentPinCode] = useState<string | null>(cached?.pinCode || null)
+  const [members, setMembers] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(!cached)
 
   // 동료 열람 후 수정 유도
@@ -78,6 +79,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
       const data = await response.json()
       setAllConversations(data.conversations || [])
       setCurrentPinCode(data.currentPinCode || null)
+      setMembers(data.members || [])
       try {
         sessionStorage.setItem(
           cacheKey,
@@ -120,9 +122,11 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
     if (myConversation && !revising) setRevisedSummary(myConversation.summary)
   }, [myConversation, revising])
 
+  // 색상은 세션 멤버 전체 기준 — 아바타·콘셉트 그래프 색상이 항상 일치
+  const memberNames = useMemo(() => members.map((m) => m.name), [members])
   const colorMap = useMemo(
-    () => buildColorMap(conversations.map((c) => c.userName)),
-    [conversations]
+    () => buildColorMap(memberNames.length > 0 ? memberNames : conversations.map((c) => c.userName)),
+    [memberNames, conversations]
   )
   const colorOf = (name: string, idx: number) =>
     colorMap.get(name.trim()) || USER_COLORS[idx % USER_COLORS.length]
@@ -130,7 +134,8 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
   // 콘셉트 네트워크 그래프 (기존 공통점·차이점 비교 대체)
   const { graph, loading: graphLoading, error: graphError, refresh, enough } = useConceptGraph(
     sessionId,
-    conversations
+    conversations,
+    memberNames
   )
 
   const handleSaveRevision = async () => {

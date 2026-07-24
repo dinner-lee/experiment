@@ -51,6 +51,7 @@ export default function TeamStep({ userId, sessionId, userName }: TeamStepProps)
 
   // 팀원들의 최종 버전 의견 (문서 작성 시 참고용)
   const [opinions, setOpinions] = useState<FinalOpinion[]>([])
+  const [members, setMembers] = useState<{ id: string; name: string }[]>([])
   useEffect(() => {
     let cancelled = false
     const fetchOpinions = async () => {
@@ -62,6 +63,7 @@ export default function TeamStep({ userId, sessionId, userName }: TeamStepProps)
         setOpinions(
           (data.conversations || []).filter((c: FinalOpinion & { pinCode?: string }) => c.pinCode === pin)
         )
+        setMembers(data.members || [])
       } catch (error) {
         console.error('Failed to fetch final opinions:', error)
       }
@@ -74,9 +76,13 @@ export default function TeamStep({ userId, sessionId, userName }: TeamStepProps)
     }
   }, [sessionId, userId])
 
+  // 색상은 세션 멤버 전체 기준 — 콘셉트 그래프·다른 화면의 아바타 색상과 일치
   const opinionColorMap = useMemo(
-    () => buildColorMap(opinions.map((o) => o.userName)),
-    [opinions]
+    () =>
+      buildColorMap(
+        members.length > 0 ? members.map((m) => m.name) : opinions.map((o) => o.userName)
+      ),
+    [members, opinions]
   )
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'merged'>('idle')
 
