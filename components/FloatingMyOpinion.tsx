@@ -121,7 +121,7 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-[80] flex items-center gap-2 rounded-full bg-pine-700/80 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-pine-900/30 ring-1 ring-white/25 backdrop-blur-md transition-colors hover:bg-pine-600/90"
+        className="fixed bottom-6 right-6 z-[80] flex items-center gap-2 rounded-full bg-pine-700/80 px-4 py-2.5 font-display text-sm text-white shadow-lg shadow-pine-900/30 ring-1 ring-white/25 backdrop-blur-md transition-colors hover:bg-pine-600/90"
       >
         <StickyNote className="h-4 w-4" />내 의견 보기
       </button>
@@ -140,7 +140,7 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
           aria-hidden
           className="pointer-events-none absolute -left-8 -top-10 h-24 w-24 rounded-full bg-white/15 blur-xl"
         />
-        <span className="relative flex items-center gap-2 text-sm font-semibold">
+        <span className="relative flex items-center gap-2 font-display text-base">
           <StickyNote className="h-4 w-4" />내 의견
           {savedNotice && (
             <span className="rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium">
@@ -179,14 +179,14 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={7}
-              className="w-full resize-y rounded-xl border border-zinc-200 px-3 py-2.5 text-sm leading-relaxed text-ink focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
+              className="w-full resize-y rounded-xl border border-zinc-300 bg-white px-3 py-2.5 text-sm leading-relaxed text-ink shadow-sm focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
             />
             <input
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="무엇을 참고해 수정했나요? (선택)"
-              className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-xs text-ink focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
+              className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-xs text-ink shadow-sm focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
             />
             <div className="flex gap-2">
               <button
@@ -226,7 +226,7 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
           onChange={(e) => handleMemoChange(e.target.value)}
           rows={3}
           placeholder="동료 의견이나 개념 지도를 보며 떠오른 생각을 적어두세요…"
-          className="w-full resize-y rounded-xl border border-zinc-200 bg-white/80 px-3 py-2 text-sm leading-relaxed text-ink placeholder:text-zinc-400 focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
+          className="w-full resize-y rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm leading-relaxed text-ink shadow-sm placeholder:text-zinc-400 focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
         />
       </div>
     </div>
