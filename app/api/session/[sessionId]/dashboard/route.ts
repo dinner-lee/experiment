@@ -9,15 +9,16 @@ export async function GET(
   try {
     const { sessionId } = await Promise.resolve(params)
     const viewerId = request.nextUrl.searchParams.get('viewerId')
-    // 본인 여부는 이름 기준 (재입장/세션 이동 대응)
-    const viewer = viewerId
-      ? await prisma.user.findUnique({ where: { id: viewerId }, select: { name: true } })
-      : null
-
-    const current = await prisma.session.findUnique({
-      where: { id: sessionId },
-      select: { pinCode: true },
-    })
+    // 뷰어(이름 기준 본인 판별용)와 현재 세션을 병렬 조회 (왕복 지연 최소화)
+    const [viewer, current] = await Promise.all([
+      viewerId
+        ? prisma.user.findUnique({ where: { id: viewerId }, select: { name: true } })
+        : Promise.resolve(null),
+      prisma.session.findUnique({
+        where: { id: sessionId },
+        select: { pinCode: true },
+      }),
+    ])
     if (!current) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }

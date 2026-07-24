@@ -276,9 +276,20 @@ export default function DashboardStep({
   onOpenCompare,
   onJoin,
 }: DashboardStepProps) {
-  const [sessions, setSessions] = useState<DashboardSession[]>([])
-  const [pinCode, setPinCode] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  // 마지막으로 받아둔 데이터를 즉시 표시하고, 백그라운드에서 최신화
+  const dashCacheKey = `cache:dash:${sessionId}:${userId}`
+  const [cached] = useState<{ sessions: DashboardSession[]; pinCode: string | null } | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const raw = sessionStorage.getItem(dashCacheKey)
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })
+  const [sessions, setSessions] = useState<DashboardSession[]>(cached?.sessions || [])
+  const [pinCode, setPinCode] = useState<string | null>(cached?.pinCode || null)
+  const [loading, setLoading] = useState(!cached)
   const [creating, setCreating] = useState(false)
 
   // 새 세션(회차) 만들기: 현재 세션 설정을 복제하고 팀의 입장 대상이 됨
@@ -312,19 +323,26 @@ export default function DashboardStep({
       const response = await fetch(`/api/session/${sessionId}/dashboard?viewerId=${userId}`)
       if (!response.ok) return
       const data = await response.json()
+      const visibleSessions = (data.sessions || []).filter(
+        (s: DashboardSession) => s.isCurrent || s.conversations.length > 0
+      )
       setPinCode(data.pinCode || null)
       // 공유된 의견이 없는 세션은 숨김 (현재 참여 중인 세션은 항상 표시)
-      setSessions(
-        (data.sessions || []).filter(
-          (s: DashboardSession) => s.isCurrent || s.conversations.length > 0
+      setSessions(visibleSessions)
+      try {
+        sessionStorage.setItem(
+          dashCacheKey,
+          JSON.stringify({ sessions: visibleSessions, pinCode: data.pinCode || null })
         )
-      )
+      } catch {
+        // 캐시 저장 실패는 무시
+      }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
     } finally {
       setLoading(false)
     }
-  }, [sessionId, userId])
+  }, [sessionId, userId, dashCacheKey])
 
   useEffect(() => {
     fetchData()
