@@ -57,8 +57,14 @@ export async function GET(
     }
 
     // 열람자 기준 공개 범위 적용 (작성자 본인은 항상 전체 열람 가능)
+    // 본인 여부는 이름 기준 — PATCH의 작성자 검사와 동일 (재입장/세션 이동 대응)
     const viewerId = request.nextUrl.searchParams.get('viewerId')
-    const isOwner = viewerId !== null && viewerId === conversation.userId
+    const viewer = viewerId
+      ? await prisma.user.findUnique({ where: { id: viewerId }, select: { name: true } })
+      : null
+    const isOwner = viewer
+      ? conversation.user.name === viewer.name
+      : viewerId !== null && viewerId === conversation.userId
     const payload: any = { ...conversation, isOwner }
     if (!isOwner && conversation.shareScope === 'summary_only') {
       payload.messages = []

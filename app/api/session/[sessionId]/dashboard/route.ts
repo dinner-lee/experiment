@@ -9,6 +9,10 @@ export async function GET(
   try {
     const { sessionId } = await Promise.resolve(params)
     const viewerId = request.nextUrl.searchParams.get('viewerId')
+    // 본인 여부는 이름 기준 (재입장/세션 이동 대응)
+    const viewer = viewerId
+      ? await prisma.user.findUnique({ where: { id: viewerId }, select: { name: true } })
+      : null
 
     const current = await prisma.session.findUnique({
       where: { id: sessionId },
@@ -52,7 +56,9 @@ export async function GET(
       isCurrent: s.id === sessionId,
       members: s.users,
       conversations: s.conversations.map((conv) => {
-        const isMine = viewerId !== null && conv.userId === viewerId
+        const isMine = viewer
+          ? conv.user.name === viewer.name
+          : viewerId !== null && conv.userId === viewerId
         return {
           id: conv.id,
           userName: conv.isAnonymous && !isMine ? '익명' : conv.user.name,

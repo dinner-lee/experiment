@@ -10,7 +10,11 @@ export async function GET(
     const { sessionId } = resolvedParams
 
     // 열람자 확인 (익명 처리 및 본인 대화 식별용)
+    // 본인 여부는 이름 기준 — 재입장/세션 이동 후에도 자기 의견을 인식 (수정 권한 검사와 동일 기준)
     const viewerId = request.nextUrl.searchParams.get('viewerId')
+    const viewer = viewerId
+      ? await prisma.user.findUnique({ where: { id: viewerId }, select: { name: true } })
+      : null
 
     // 단일 쿼리: 세션 + 이 세션의 공유된 대화만 조회.
     // 목록에 불필요한 대화 원문(messages)은 제외하여 페이로드를 최소화
@@ -53,7 +57,9 @@ export async function GET(
     const conversations = session.conversations
 
     const result = conversations.map((conv) => {
-      const isMine = viewerId !== null && conv.userId === viewerId
+      const isMine = viewer
+        ? conv.user.name === viewer.name
+        : viewerId !== null && conv.userId === viewerId
       // 읽음 표시: 작성자 본인을 제외한 고유 열람자
       const readerNames = Array.from(
         new Map(

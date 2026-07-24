@@ -32,6 +32,21 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
   const [saving, setSaving] = useState(false)
   const [savedNotice, setSavedNotice] = useState(false)
 
+  // 개인 메모 (이 기기에 저장, 동료에게 보이지 않음)
+  const memoKey = `memo:${sessionId}:${userId}`
+  const [memo, setMemo] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem(memoKey) || ''
+  })
+  const handleMemoChange = (value: string) => {
+    setMemo(value)
+    try {
+      localStorage.setItem(memoKey, value)
+    } catch {
+      // 저장 실패는 무시
+    }
+  }
+
   useEffect(() => {
     let cancelled = false
     const fetchMine = async () => {
@@ -106,7 +121,7 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-pine-700/80 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-pine-900/30 ring-1 ring-white/25 backdrop-blur-md transition-colors hover:bg-pine-600/90"
+        className="fixed bottom-6 right-6 z-[80] flex items-center gap-2 rounded-full bg-pine-700/80 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-pine-900/30 ring-1 ring-white/25 backdrop-blur-md transition-colors hover:bg-pine-600/90"
       >
         <StickyNote className="h-4 w-4" />내 의견 보기
       </button>
@@ -114,7 +129,7 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-white/40 bg-white/75 shadow-2xl shadow-zinc-900/20 backdrop-blur-xl">
+    <div className="fixed bottom-6 right-6 z-[80] flex w-96 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-white/40 bg-white/75 shadow-2xl shadow-zinc-900/20 backdrop-blur-xl">
       {/* 헤더 (글래스 효과) */}
       <div className="relative flex items-center justify-between overflow-hidden bg-pine-800/60 px-4 py-2.5 text-white shadow-inner ring-1 ring-inset ring-white/20 backdrop-blur-xl backdrop-saturate-150">
         <div
@@ -199,6 +214,20 @@ export default function FloatingMyOpinion({ sessionId, userId }: FloatingMyOpini
             {mine.summary}
           </p>
         )}
+      </div>
+
+      {/* 개인 메모 */}
+      <div className="border-t border-zinc-200/60 px-4 py-3">
+        <p className="mb-1.5 text-xs font-semibold text-zinc-500">
+          메모 <span className="font-normal text-zinc-400">(나만 볼 수 있어요)</span>
+        </p>
+        <textarea
+          value={memo}
+          onChange={(e) => handleMemoChange(e.target.value)}
+          rows={3}
+          placeholder="동료 의견이나 개념 지도를 보며 떠오른 생각을 적어두세요…"
+          className="w-full resize-y rounded-xl border border-zinc-200 bg-white/80 px-3 py-2 text-sm leading-relaxed text-ink placeholder:text-zinc-400 focus:border-pine-500 focus:outline-none focus:ring-2 focus:ring-pine-500/20"
+        />
       </div>
     </div>
   )
