@@ -9,9 +9,10 @@ export interface StepDef {
 
 interface StepNavProps {
   steps: StepDef[]
-  currentStep: number
+  currentStep: number // 0이면 대시보드 (강조되는 단계 없음)
   maxStep: number // 지금까지 도달(해금)한 최대 단계
   onNavigate: (step: number) => void
+  onLogoClick?: () => void // 로고 클릭 시 대시보드로 이동
   userName: string
   onLogout: () => void
 }
@@ -21,14 +22,20 @@ export default function StepNav({
   currentStep,
   maxStep,
   onNavigate,
+  onLogoClick,
   userName,
   onLogout,
 }: StepNavProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200/80 bg-white/95 font-display backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-        {/* 로고 */}
-        <div className="flex shrink-0 items-center gap-2.5">
+        {/* 로고 (클릭 시 대시보드) */}
+        <div
+          onClick={onLogoClick}
+          role={onLogoClick ? 'button' : undefined}
+          title={onLogoClick ? '대시보드로 이동' : undefined}
+          className={`flex shrink-0 items-center gap-2.5 ${onLogoClick ? 'cursor-pointer' : ''}`}
+        >
           <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl bg-pine-700/75 text-white shadow-inner ring-1 ring-inset ring-white/30 backdrop-blur-md">
             <div
               aria-hidden

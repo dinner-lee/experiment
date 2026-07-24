@@ -6,13 +6,15 @@ import { format } from 'date-fns'
 import {
   ArrowRight,
   CheckCheck,
-  GitCompareArrows,
-  Lightbulb,
-  MessageCircleQuestion,
+  EyeOff,
+  Network,
   PenLine,
   RefreshCw,
   Users,
 } from 'lucide-react'
+import StaticConceptGraph from '@/components/StaticConceptGraph'
+import { useConceptGraph } from '@/lib/useConceptGraph'
+import { buildColorMap, USER_COLORS } from '@/lib/userColors'
 
 interface CompareStepProps {
   userId: string
@@ -37,13 +39,6 @@ interface SharedConversation {
   revisionCount: number
 }
 
-interface Analysis {
-  commonPoints?: { point: string; users: string[] }[]
-  differences?: { topic: string; stances: { user: string; position: string }[] }[]
-  uniquePoints?: { user: string; points: string[] }[]
-  discussionQuestions?: string[]
-}
-
 export default function CompareStep({ userId, sessionId, userName, onNext }: CompareStepProps) {
   const router = useRouter()
   const cacheKey = `cache:convs:${sessionId}:${userId}`
@@ -64,9 +59,6 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
   )
   const [currentPinCode, setCurrentPinCode] = useState<string | null>(cached?.pinCode || null)
   const [loading, setLoading] = useState(!cached)
-  const [analysis, setAnalysis] = useState<Analysis | null>(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [analysisError, setAnalysisError] = useState('')
 
   // 동료 열람 후 수정 유도
   const viewedPeerKey = `viewedPeer:${sessionId}:${userId}`
@@ -128,29 +120,18 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
     if (myConversation && !revising) setRevisedSummary(myConversation.summary)
   }, [myConversation, revising])
 
-  const handleAnalyze = async () => {
-    setAnalyzing(true)
-    setAnalysisError('')
-    try {
-      const response = await fetch(`/api/session/${sessionId}/compare`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ viewerId: userId }),
-      })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.error || '비교 분석에 실패했습니다')
-      if (data.status === 'not_enough') {
-        setAnalysisError(data.message)
-        setAnalysis(null)
-      } else {
-        setAnalysis(data.analysis)
-      }
-    } catch (error: any) {
-      setAnalysisError(error.message || '비교 분석에 실패했습니다')
-    } finally {
-      setAnalyzing(false)
-    }
-  }
+  const colorMap = useMemo(
+    () => buildColorMap(conversations.map((c) => c.userName)),
+    [conversations]
+  )
+  const colorOf = (name: string, idx: number) =>
+    colorMap.get(name.trim()) || USER_COLORS[idx % USER_COLORS.length]
+
+  // 콘셉트 네트워크 그래프 (기존 공통점·차이점 비교 대체)
+  const { graph, loading: graphLoading, error: graphError, refresh, enough } = useConceptGraph(
+    sessionId,
+    conversations
+  )
 
   const handleSaveRevision = async () => {
     if (!myConversation || !revisedSummary.trim()) return
@@ -180,11 +161,6 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
       setSavingRevision(false)
     }
   }
-
-  const formatDuration = (seconds: number) => `${Math.floor(seconds / 60)}분 ${seconds % 60}초`
-
-  // 분석 결과에서 내 이름 강조용
-  const isMe = (name: string) => name === userName
 
   if (loading) {
     return (
@@ -222,7 +198,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
         </div>
       )}
 
-      {/* 공유된 의견 목록 */}
+      {/* 우리 팀의 의견 (카드형) */}
       <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
           <div>
@@ -231,7 +207,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
               우리 팀의 의견
             </h2>
             <p className="mt-0.5 text-xs text-zinc-500">
-              동료의 이름을 눌러 요약과 대화 기록을 자세히 살펴보세요.
+              카드를 눌러 동료의 요약과 대화 기록을 자세히 살펴보세요.
             </p>
           </div>
           {currentPinCode && (
@@ -245,31 +221,45 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
             아직 공유된 의견이 없습니다. 동료들이 공유하면 여기에 나타납니다.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-100" data-peer-content="">
-            {conversations.map((conv) => (
-              <li
+          <div className="grid gap-4 p-6 sm:grid-cols-2" data-peer-content="">
+            {conversations.map((conv, i) => (
+              <div
                 key={conv.id}
                 onClick={() => router.push(`/conversation/${conv.id}`)}
-                className="flex cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 px-6 py-4 transition-colors hover:bg-pine-50/50"
+                className="group cursor-pointer rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-pine-200 hover:shadow-md"
               >
-                <div className="flex w-32 shrink-0 items-center gap-1.5">
-                  <span className="font-semibold text-ink">{conv.userName}</span>
-                  {conv.isMine && (
-                    <span className="rounded-full bg-pine-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                      나
+                <div className="mb-3 flex items-center gap-2.5">
+                  <span
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                    style={{ backgroundColor: colorOf(conv.userName, i) }}
+                  >
+                    {conv.userName.substring(0, 1)}
+                  </span>
+                  <div className="min-w-0">
+                    <span className="flex items-center gap-1.5 font-semibold text-ink">
+                      {conv.userName}
+                      {conv.isMine && (
+                        <span className="rounded-full bg-pine-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                          나
+                        </span>
+                      )}
                     </span>
-                  )}
+                    <span className="text-xs text-zinc-400">
+                      {format(new Date(conv.createdAt), 'MM/dd HH:mm')}
+                      {conv.shareScope === 'summary_only' && (
+                        <span className="ml-1.5 inline-flex items-center gap-0.5">
+                          <EyeOff className="h-3 w-3" />
+                          요약만 공개
+                        </span>
+                      )}
+                    </span>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-zinc-800">
-                    {conv.title || '(제목 없음)'}
-                  </p>
-                  <p className="text-xs text-zinc-400">
-                    {format(new Date(conv.createdAt), 'MM/dd HH:mm')} · {formatDuration(conv.duration)}
-                    {conv.shareScope === 'summary_only' && ' · 요약만 공개'}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <p className="mb-1.5 font-semibold leading-snug text-ink">
+                  {conv.title || '(제목 없음)'}
+                </p>
+                <p className="line-clamp-3 text-sm leading-relaxed text-zinc-600">{conv.summary}</p>
+                <div className="mt-3 flex items-center gap-2">
                   {conv.revisionCount > 0 && (
                     <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
                       <PenLine className="h-3 w-3" />
@@ -278,9 +268,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
                   )}
                   <span
                     className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      conv.readerCount > 0
-                        ? 'bg-pine-100 text-pine-800'
-                        : 'bg-zinc-100 text-zinc-400'
+                      conv.readerCount > 0 ? 'bg-pine-100 text-pine-800' : 'bg-zinc-100 text-zinc-400'
                     }`}
                     title={conv.readerNames.join(', ')}
                   >
@@ -288,165 +276,48 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
                     {conv.readerCount}명 읽음
                   </span>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
 
-      {/* 비교 분석 */}
+      {/* 콘셉트 네트워크 그래프 */}
       <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-6 py-4">
           <div>
             <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
-              <GitCompareArrows className="h-5 w-5 text-pine-700" />
-              의견 비교 분석
+              <Network className="h-5 w-5 text-pine-700" />
+              콘셉트 네트워크
             </h2>
             <p className="mt-0.5 text-xs text-zinc-500">
-              AI가 팀원들의 의견에서 공통점, 관점 차이, 각자의 고유한 아이디어를 찾아드립니다.
+              팀원들의 의견에서 추출한 핵심 개념 지도입니다. 여러 명의 색 테두리를 가진 개념은
+              공통으로 언급된 것입니다.
             </p>
           </div>
-          <button
-            onClick={handleAnalyze}
-            disabled={analyzing || conversations.length < 2}
-            className="flex items-center gap-1.5 rounded-xl bg-pine-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pine-600 disabled:bg-zinc-300"
-          >
-            <RefreshCw className={`h-4 w-4 ${analyzing ? 'animate-spin' : ''}`} />
-            {analyzing ? '분석 중…' : analysis ? '다시 분석하기' : '비교 분석 실행'}
-          </button>
+          {enough && (
+            <button
+              onClick={() => refresh()}
+              disabled={graphLoading}
+              className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 transition-colors hover:border-zinc-300 hover:text-ink disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${graphLoading ? 'animate-spin' : ''}`} />
+              {graphLoading ? '분석 중…' : '새로고침'}
+            </button>
+          )}
         </div>
-
-        <div className="p-6">
-          {conversations.length < 2 && (
-            <p className="text-center text-sm text-zinc-500">
-              2명 이상이 의견을 공유하면 비교 분석을 실행할 수 있습니다.
+        <div className="p-6" data-peer-content="">
+          {!enough ? (
+            <p className="py-8 text-center text-sm text-zinc-500">
+              2명 이상이 의견을 공유하면 개념 지도가 생성됩니다.
             </p>
-          )}
-          {analysisError && <p className="text-center text-sm text-red-600">{analysisError}</p>}
-          {!analysis && conversations.length >= 2 && !analysisError && (
-            <p className="text-center text-sm text-zinc-500">
-              위의 &lsquo;비교 분석 실행&rsquo; 버튼을 눌러보세요.
-            </p>
-          )}
-
-          {analysis && (
-            <div className="space-y-6" data-peer-content="">
-              {/* 공통점 */}
-              {(analysis.commonPoints?.length || 0) > 0 && (
-                <div>
-                  <h3 className="mb-2 text-sm font-bold text-pine-800">우리가 공통으로 생각한 것</h3>
-                  <div className="space-y-2">
-                    {analysis.commonPoints!.map((cp, i) => (
-                      <div key={i} className="rounded-xl bg-pine-50 px-4 py-3">
-                        <p className="text-sm leading-relaxed text-zinc-800">{cp.point}</p>
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {cp.users.map((u) => (
-                            <span
-                              key={u}
-                              className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                                isMe(u)
-                                  ? 'bg-pine-700 text-white'
-                                  : 'bg-white text-pine-800 ring-1 ring-pine-200'
-                              }`}
-                            >
-                              {u}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 차이점 비교표 */}
-              {(analysis.differences?.length || 0) > 0 && (
-                <div>
-                  <h3 className="mb-2 text-sm font-bold text-amber-800">관점이 갈리는 지점</h3>
-                  <div className="overflow-x-auto rounded-xl border border-zinc-200">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-zinc-200 bg-zinc-50 text-left">
-                          <th className="px-4 py-2.5 font-semibold text-zinc-600">주제</th>
-                          <th className="px-4 py-2.5 font-semibold text-zinc-600">입장 비교</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-100">
-                        {analysis.differences!.map((diff, i) => (
-                          <tr key={i} className="align-top">
-                            <td className="w-40 px-4 py-3 font-medium text-ink">{diff.topic}</td>
-                            <td className="px-4 py-3">
-                              <ul className="space-y-1.5">
-                                {diff.stances.map((s, j) => (
-                                  <li key={j} className="flex gap-2 leading-snug">
-                                    <span
-                                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                                        isMe(s.user)
-                                          ? 'bg-pine-700 text-white'
-                                          : 'bg-zinc-100 text-zinc-700'
-                                      }`}
-                                    >
-                                      {s.user}
-                                    </span>
-                                    <span className="text-zinc-700">{s.position}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* 고유 포인트 */}
-              {(analysis.uniquePoints?.length || 0) > 0 && (
-                <div>
-                  <h3 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-zinc-800">
-                    <Lightbulb className="h-4 w-4 text-amber-500" />
-                    각자만 언급한 아이디어
-                  </h3>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {analysis.uniquePoints!.map((up, i) => (
-                      <div
-                        key={i}
-                        className={`rounded-xl border px-4 py-3 ${
-                          isMe(up.user) ? 'border-pine-300 bg-pine-50' : 'border-zinc-200 bg-white'
-                        }`}
-                      >
-                        <p className="mb-1 text-xs font-bold text-zinc-600">
-                          {up.user}
-                          {isMe(up.user) && ' (나)'}
-                        </p>
-                        <ul className="list-inside list-disc space-y-1 text-sm leading-snug text-zinc-700">
-                          {up.points.map((p, j) => (
-                            <li key={j}>{p}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* 논의 질문 */}
-              {(analysis.discussionQuestions?.length || 0) > 0 && (
-                <div className="rounded-xl border border-dashed border-pine-300 bg-pine-50/50 px-4 py-3">
-                  <h3 className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-pine-800">
-                    <MessageCircleQuestion className="h-4 w-4" />
-                    팀 토의에서 다뤄볼 질문
-                  </h3>
-                  <ul className="list-inside list-decimal space-y-1 text-sm leading-relaxed text-zinc-700">
-                    {analysis.discussionQuestions!.map((q, i) => (
-                      <li key={i}>{q}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
+          ) : graphLoading && !graph ? (
+            <p className="py-8 text-center text-sm text-zinc-500">개념을 분석하는 중…</p>
+          ) : graphError ? (
+            <p className="py-8 text-center text-sm text-red-500">{graphError}</p>
+          ) : graph ? (
+            <StaticConceptGraph users={graph.users} concepts={graph.concepts} height={440} />
+          ) : null}
         </div>
       </div>
 

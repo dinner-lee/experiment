@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import StepNav, { StepDef } from '@/components/StepNav'
+import DashboardStep from '@/components/steps/DashboardStep'
 import ChatStep from '@/components/steps/ChatStep'
 import SummaryStep from '@/components/steps/SummaryStep'
 import CompareStep from '@/components/steps/CompareStep'
 import TeamStep from '@/components/steps/TeamStep'
-import DebriefStep from '@/components/steps/DebriefStep'
 import AnswerTab from '@/components/AnswerTab'
 import SharedAnswersTab from '@/components/SharedAnswersTab'
 import { LogOut, Puzzle } from 'lucide-react'
@@ -17,7 +17,6 @@ const STEPS: StepDef[] = [
   { n: 2, label: '요약 검토·공유' },
   { n: 3, label: '동료와 비교하기' },
   { n: 4, label: '팀 공동 결론' },
-  { n: 5, label: '성찰하기' },
 ]
 
 export default function SessionPage() {
@@ -31,8 +30,8 @@ export default function SessionPage() {
   const [hasAIChat, setHasAIChat] = useState<boolean | null>(null)
   const [showSharedAnswers, setShowSharedAnswers] = useState<boolean>(true)
 
-  // 단계 진행 상태 (사용자·세션별로 localStorage에 보존)
-  const [currentStep, setCurrentStep] = useState(1)
+  // 단계 진행 상태 (사용자·세션별로 localStorage에 보존). 0 = 대시보드
+  const [currentStep, setCurrentStep] = useState(0)
   const [maxStep, setMaxStep] = useState(1)
   const [conversationId, setConversationId] = useState<string | null>(null)
 
@@ -73,16 +72,15 @@ export default function SessionPage() {
     fetchSessionInfo()
   }, [sessionId])
 
-  // 저장된 진행 상태 복원 (+ URL ?step= 우선)
+  // 저장된 진행 상태 복원. 기본 진입 화면은 대시보드(0)이고, URL ?step=이 있으면 우선한다.
   useEffect(() => {
     if (!stepKey || !maxKey || !convKey) return
     const savedMax = parseInt(localStorage.getItem(maxKey) || '1', 10) || 1
-    const savedStep = parseInt(localStorage.getItem(stepKey) || '1', 10) || 1
     const savedConv = localStorage.getItem(convKey)
     const urlStep = parseInt(searchParams.get('step') || '', 10)
     setMaxStep(savedMax)
     setConversationId(savedConv)
-    const target = !isNaN(urlStep) && urlStep >= 1 && urlStep <= savedMax ? urlStep : Math.min(savedStep, savedMax)
+    const target = !isNaN(urlStep) && urlStep >= 0 && urlStep <= savedMax ? urlStep : 0
     setCurrentStep(target)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepKey, maxKey, convKey])
@@ -132,11 +130,21 @@ export default function SessionPage() {
           currentStep={currentStep}
           maxStep={maxStep}
           onNavigate={(step) => goToStep(step)}
+          onLogoClick={() => goToStep(0)}
           userName={userName}
           onLogout={handleLogout}
         />
 
         <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
+          {currentStep === 0 && (
+            <DashboardStep
+              userId={userId}
+              sessionId={sessionId}
+              userName={userName}
+              onStart={() => goToStep(Math.max(1, Math.min(maxStep, STEPS.length)))}
+              onOpenCompare={() => goToStep(3, true)}
+            />
+          )}
           {currentStep === 1 && (
             <ChatStep
               userId={userId}
@@ -166,15 +174,7 @@ export default function SessionPage() {
             />
           )}
           {currentStep === 4 && (
-            <TeamStep
-              userId={userId}
-              sessionId={sessionId}
-              userName={userName}
-              onNext={() => goToStep(5, true)}
-            />
-          )}
-          {currentStep === 5 && (
-            <DebriefStep userId={userId} sessionId={sessionId} />
+            <TeamStep userId={userId} sessionId={sessionId} userName={userName} />
           )}
         </main>
       </div>

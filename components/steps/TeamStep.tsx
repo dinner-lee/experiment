@@ -1,13 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { ArrowRight, FileText, Users } from 'lucide-react'
+import { FileText, Users } from 'lucide-react'
 
 interface TeamStepProps {
   userId: string
   sessionId: string
   userName: string
-  onNext: () => void
 }
 
 const TEMPLATE = `[우리 팀의 문제 정의]
@@ -23,7 +22,7 @@ const TEMPLATE = `[우리 팀의 문제 정의]
 
 `
 
-export default function TeamStep({ userId, sessionId, userName, onNext }: TeamStepProps) {
+export default function TeamStep({ userId, sessionId, userName }: TeamStepProps) {
   const cacheKey = `cache:teamdoc:${sessionId}`
   // 마지막 동기화 내용을 즉시 표시하고, 백그라운드 폴링으로 최신화
   const [cached] = useState<{ content: string; version: number } | null>(() => {
@@ -203,16 +202,6 @@ export default function TeamStep({ userId, sessionId, userName, onNext }: TeamSt
             </>
           )}
         </div>
-      </div>
-
-      <div className="flex justify-end">
-        <button
-          onClick={onNext}
-          className="flex items-center gap-2 rounded-xl bg-ink px-6 py-3 font-semibold text-white transition-colors hover:bg-zinc-800"
-        >
-          성찰하러 가기
-          <ArrowRight className="h-4 w-4" />
-        </button>
       </div>
     </div>
   )

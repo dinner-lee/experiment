@@ -18,6 +18,8 @@ export async function GET(
       where: { id: sessionId },
       select: {
         pinCode: true,
+        createdAt: true,
+        users: { select: { id: true, name: true }, orderBy: { createdAt: 'asc' } },
         conversations: {
           where: { isShared: true, kind: 'main' },
           select: {
@@ -81,6 +83,8 @@ export async function GET(
     return NextResponse.json({
       conversations: result,
       currentPinCode: session.pinCode,
+      sessionCreatedAt: session.createdAt,
+      members: session.users,
     })
   } catch (error: any) {
     console.error('Failed to fetch conversations:', error.message)
