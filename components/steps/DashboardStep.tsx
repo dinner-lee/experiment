@@ -180,10 +180,9 @@ export default function DashboardStep({
                   {conversations.map((conv, i) => (
                     <div
                       key={conv.id}
-                      data-peer-content={!conv.isMine ? '' : undefined}
                       onClick={(e) => {
                         e.stopPropagation()
-                        // 텍스트를 드래그(선택) 중이면 상세로 이동하지 않음 (동료 의견 수집용)
+                        // 텍스트를 드래그(선택) 중이면 상세로 이동하지 않음
                         const selection = window.getSelection()
                         if (selection && !selection.isCollapsed) return
                         router.push(`/conversation/${conv.id}`)

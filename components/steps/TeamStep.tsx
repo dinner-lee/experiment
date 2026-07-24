@@ -210,7 +210,6 @@ export default function TeamStep({ userId, sessionId, userName }: TeamStepProps)
             {opinions.map((op, i) => (
               <div
                 key={op.id}
-                data-peer-content={!op.isMine ? '' : undefined}
                 className="rounded-xl border border-zinc-200/70 bg-zinc-50/50 p-4"
               >
                 <div className="mb-2 flex items-center gap-2">

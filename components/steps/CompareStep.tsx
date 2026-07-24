@@ -225,9 +225,8 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
             {conversations.map((conv, i) => (
               <div
                 key={conv.id}
-                data-peer-content={!conv.isMine ? '' : undefined}
                 onClick={() => {
-                  // 텍스트를 드래그(선택) 중이면 상세로 이동하지 않음 (동료 의견 수집용)
+                  // 텍스트를 드래그(선택) 중이면 상세로 이동하지 않음
                   const selection = window.getSelection()
                   if (selection && !selection.isCollapsed) return
                   router.push(`/conversation/${conv.id}`)
@@ -312,7 +311,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
             </button>
           )}
         </div>
-        <div className="p-6" data-peer-content="">
+        <div className="p-6">
           {!enough ? (
             <p className="py-8 text-center text-sm text-zinc-500">
               2명 이상이 의견을 공유하면 개념 지도가 생성됩니다.
