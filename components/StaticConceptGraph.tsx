@@ -72,7 +72,8 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
       })
     })
 
-    if (nodes.length === 0) return { nodes: [], links: [], viewBox: '0 0 800 400' }
+    if (nodes.length === 0)
+      return { nodes: [] as LayoutNode[], links: [], vbX: 0, vbY: 0, vbW: 800, vbH: 400 }
 
     // 시뮬레이션을 동기 실행 (탄성 애니메이션 없이 최종 위치만 사용)
     const simLinks = links.map((l) => ({ ...l }))
