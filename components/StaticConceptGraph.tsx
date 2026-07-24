@@ -310,10 +310,11 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
     )
   }
 
-  // 카드 배율: 기본은 카드에 맞춤(최대 1.35배). 0.8배 미만으로 줄어들 만큼 크면
-  // 0.8배를 유지하고 스크롤 — 세부는 '크게 보기'로 확인
-  const fitScale = containerW > 0 ? containerW / layout.vbW : 1
-  const scale = Math.min(Math.max(fitScale, 0.8), 1.35)
+  // 카드 배율: 스크롤 없이 항상 전체가 보이도록 폭·높이에 맞춤 (최대 1.35배)
+  // 세부를 크게 보고 싶으면 '크게 보기' 모달 사용
+  const fitScale =
+    containerW > 0 ? Math.min(containerW / layout.vbW, height / layout.vbH) : 1
+  const scale = Math.min(fitScale, 1.35)
 
   // 전체화면 배율: 화면 폭에 맞추되 최소 1배 보장
   const fullScale =
@@ -332,7 +333,7 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
         크게 보기
       </button>
 
-      <div ref={containerRef} className="overflow-auto" style={{ maxHeight: height }}>
+      <div ref={containerRef} className="flex justify-center overflow-hidden">
         <GraphSvg layout={layout} scale={scale} />
       </div>
 
