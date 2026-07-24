@@ -244,7 +244,12 @@ export default function DashboardStep({ userId, sessionId, onOpenCompare }: Dash
       if (!response.ok) return
       const data = await response.json()
       setPinCode(data.pinCode || null)
-      setSessions(data.sessions || [])
+      // 공유된 의견이 없는 세션은 숨김 (현재 참여 중인 세션은 항상 표시)
+      setSessions(
+        (data.sessions || []).filter(
+          (s: DashboardSession) => s.isCurrent || s.conversations.length > 0
+        )
+      )
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
     } finally {
