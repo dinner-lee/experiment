@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { UIMessage, DefaultChatTransport } from 'ai'
 import { ArrowRight, BotMessageSquare, CircleHelp, SendHorizontal, Sparkles } from 'lucide-react'
+import RichText from '@/components/RichText'
 
 interface ChatStepProps {
   userId: string
@@ -250,7 +251,7 @@ export default function ChatStep({ userId, sessionId, userName, onComplete }: Ch
                     : 'rounded-bl-md border border-zinc-200/70 bg-white text-zinc-800 shadow-sm'
                 }`}
               >
-                {content}
+                <RichText text={content} />
               </div>
             </div>
           )

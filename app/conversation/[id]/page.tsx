@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { ArrowLeft, EyeOff, PenLine } from 'lucide-react'
+import RichText from '@/components/RichText'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -316,7 +317,7 @@ export default function ConversationDetailPage() {
                           : 'rounded-bl-md border border-zinc-200/70 bg-zinc-50 text-zinc-800'
                       }`}
                     >
-                      {content}
+                      <RichText text={content} />
                     </div>
                   </div>
                 )
