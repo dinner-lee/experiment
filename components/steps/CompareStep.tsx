@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { format } from 'date-fns'
 import {
   ArrowRight,
@@ -68,6 +68,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
   const [revisedSummary, setRevisedSummary] = useState('')
   const [revisionReason, setRevisionReason] = useState('')
   const [savingRevision, setSavingRevision] = useState(false)
+  const reviseSectionRef = useRef<HTMLDivElement>(null)
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -207,6 +208,10 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
               onClick={() => {
                 setRevising(true)
                 setShowRevisePrompt(false)
+                // 하단의 '내 의견 수정하기' 섹션으로 이동
+                setTimeout(() => {
+                  reviseSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                }, 80)
               }}
               className="rounded-lg bg-pine-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-pine-600"
             >
@@ -352,7 +357,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
 
       {/* 내 의견 수정 */}
       {myConversation && (
-        <div className="rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
+        <div ref={reviseSectionRef} className="rounded-2xl border border-zinc-200/70 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
             <div>
               <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
