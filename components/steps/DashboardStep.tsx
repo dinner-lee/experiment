@@ -33,6 +33,7 @@ interface DashboardConversation {
 
 interface DashboardSession {
   id: string
+  name: string | null
   createdAt: string
   isActive: boolean
   isCurrent: boolean
@@ -88,7 +89,12 @@ function SessionCard({
 
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-lg font-semibold text-ink">PIN {pinCode ?? '—'} 세션</span>
+            <span className="text-lg font-semibold text-ink">
+              {session.name || `PIN ${pinCode ?? '—'} 세션`}
+            </span>
+            {session.name && (
+              <span className="text-sm text-zinc-400">PIN {pinCode ?? '—'}</span>
+            )}
             {session.isCurrent && (
               <span className="rounded-full bg-pine-700 px-2 py-0.5 text-[11px] font-bold text-white">
                 현재 참여 중

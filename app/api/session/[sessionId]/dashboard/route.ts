@@ -23,6 +23,7 @@ export async function GET(
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
+        name: true,
         createdAt: true,
         isActive: true,
         users: { select: { id: true, name: true }, orderBy: { createdAt: 'asc' } },
@@ -45,6 +46,7 @@ export async function GET(
 
     const result = sessions.map((s) => ({
       id: s.id,
+      name: s.name,
       createdAt: s.createdAt,
       isActive: s.isActive,
       isCurrent: s.id === sessionId,

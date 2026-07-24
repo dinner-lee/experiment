@@ -4,10 +4,44 @@ import { prisma } from '@/lib/prisma'
 // PIN 생성
 export async function POST(request: NextRequest) {
   try {
-    const { pinCode, hasAIChat, question, showSharedAnswers } = await request.json()
-    
+    const { pinCode, hasAIChat, question, showSharedAnswers, name, copyFromSessionId } =
+      await request.json()
+
     if (!pinCode) {
       return NextResponse.json({ error: 'PIN code is required' }, { status: 400 })
+    }
+
+    // 기존 세션의 설정을 복제해 같은 PIN에 새 세션(회차)을 추가하는 경우
+    if (copyFromSessionId) {
+      const source = await prisma.session.findUnique({
+        where: { id: copyFromSessionId },
+        select: {
+          pinCode: true,
+          hasAIChat: true,
+          question: true,
+          showSharedAnswers: true,
+          chatModel: true,
+          chatFirstQuestion: true,
+          chatSystemPrompt: true,
+        },
+      })
+      if (!source) {
+        return NextResponse.json({ error: '복제할 세션을 찾을 수 없습니다' }, { status: 404 })
+      }
+      const session = await prisma.session.create({
+        data: {
+          pinCode: source.pinCode,
+          name: typeof name === 'string' && name.trim() !== '' ? name.trim() : null,
+          isActive: true,
+          hasAIChat: source.hasAIChat,
+          question: source.question,
+          showSharedAnswers: source.showSharedAnswers,
+          chatModel: source.chatModel,
+          chatFirstQuestion: source.chatFirstQuestion,
+          chatSystemPrompt: source.chatSystemPrompt,
+        },
+      })
+      return NextResponse.json({ session })
     }
 
     // AI 기능이 비활성화된 경우 질문이 필수
@@ -21,6 +55,7 @@ export async function POST(request: NextRequest) {
     const session = await prisma.session.create({
       data: {
         pinCode,
+        name: typeof name === 'string' && name.trim() !== '' ? name.trim() : null,
         isActive: true,
         hasAIChat: hasAIChat !== undefined ? hasAIChat : true, // 기본값은 true
         question: hasAIChat === false ? (question ? question.trimEnd() : null) : null, // AI 기능 비활성화 시에만 질문 저장 (줄바꿈 보존, 뒤 공백만 제거)
@@ -71,6 +106,7 @@ export async function GET() {
       select: {
         id: true,
         pinCode: true,
+        name: true,
         createdAt: true,
         _count: {
           select: {
@@ -85,6 +121,7 @@ export async function GET() {
     const result = sessions.map(session => ({
       pinCode: session.pinCode,
       id: session.id,
+      name: session.name,
       createdAt: session.createdAt,
       userCount: session._count.users,
       conversationCount: session._count.conversations,

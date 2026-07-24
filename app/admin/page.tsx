@@ -24,6 +24,7 @@ if (typeof window !== 'undefined') {
 interface Session {
   pinCode: string
   id: string
+  name: string | null
   createdAt: string
   userCount: number
   conversationCount: number
@@ -68,8 +69,37 @@ export default function AdminPage() {
   const [sessions, setSessions] = useState<Session[]>([])
   const [selectedPin, setSelectedPin] = useState<string | null>(null)
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  const [selectedSessionName, setSelectedSessionName] = useState<string | null>(null)
   const [moveTargetSessionId, setMoveTargetSessionId] = useState('')
   const [isMoving, setIsMoving] = useState(false)
+
+  // 같은 PIN에 새 세션(회차)을 추가하고 대화를 분류해 넣을 수 있게 함
+  const addSessionToPin = async () => {
+    if (!selectedPin || !selectedSessionId) return
+    const newName = prompt(
+      '새 세션(회차)의 이름을 입력하세요. (예: 2회차)\n현재 세션의 AI 설정이 그대로 복제됩니다.'
+    )
+    if (newName === null) return
+    try {
+      const response = await fetch('/api/admin/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pinCode: selectedPin,
+          name: newName,
+          copyFromSessionId: selectedSessionId,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || '세션 추가에 실패했습니다')
+      alert(
+        `새 세션이 추가되었습니다${newName.trim() ? ` (${newName.trim()})` : ''}.\n아래에서 대화를 선택한 뒤 '선택 대화 이동'으로 분류해 넣을 수 있습니다.`
+      )
+      fetchSessions()
+    } catch (error: any) {
+      alert(`세션 추가에 실패했습니다: ${error.message || '알 수 없는 오류'}`)
+    }
+  }
   // 세션별 AI 대화 설정 (모델·첫 질문·시스템 프롬프트)
   const [sessionHasAIChat, setSessionHasAIChat] = useState(true)
   const [showAISettings, setShowAISettings] = useState(false)
@@ -290,6 +320,7 @@ export default function AdminPage() {
       const sessionData = await sessionResponse.json()
       const sessionId = sessionData.session.id
       setSelectedSessionId(sessionId)
+      setSelectedSessionName(sessionData.session.name || null)
       setMoveTargetSessionId('')
 
       // AI 대화 설정 상태 반영 (미설정 시 실제 기본 프롬프트 전문을 표시)
@@ -671,6 +702,11 @@ export default function AdminPage() {
                   <tr key={session.id}>
                     <td className="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-50">
                       {session.pinCode}
+                      {session.name && (
+                        <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                          {session.name}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
                       {format(new Date(session.createdAt), 'yyyy-MM-dd HH:mm')}
@@ -725,12 +761,24 @@ export default function AdminPage() {
                   <div>
                     <h3 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                       PIN 번호: <span className="font-bold text-black dark:text-zinc-50">{selectedPin}</span>
+                      {selectedSessionName && (
+                        <span className="ml-2 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                          {selectedSessionName}
+                        </span>
+                      )}
                     </h3>
                     <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                       {conversations.length}개 대화 로그가 표시됩니다.
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
+                    <button
+                      onClick={addSessionToPin}
+                      className="rounded-md border border-zinc-300 bg-white px-3 py-1 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                      title="같은 PIN에 새 세션(회차)을 추가하고, 대화를 선택해 분류해 넣을 수 있습니다"
+                    >
+                      + 새 세션 추가
+                    </button>
                     {sessionHasAIChat && (
                       <button
                         onClick={() => setShowAISettings(!showAISettings)}
@@ -893,7 +941,7 @@ export default function AdminPage() {
                             .filter((s) => s.pinCode === selectedPin && s.id !== selectedSessionId)
                             .map((s) => (
                               <option key={s.id} value={s.id}>
-                                {format(new Date(s.createdAt), 'MM/dd HH:mm')} 개설 세션
+                                {s.name || `${format(new Date(s.createdAt), 'MM/dd HH:mm')} 개설 세션`}
                               </option>
                             ))}
                         </select>

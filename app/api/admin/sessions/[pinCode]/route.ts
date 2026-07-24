@@ -44,6 +44,7 @@ export async function GET(
       select: {
         id: true,
         pinCode: true,
+        name: true,
         hasAIChat: true,
         chatModel: true,
         chatFirstQuestion: true,
@@ -63,6 +64,7 @@ export async function GET(
       session: {
         id: session.id,
         pinCode: session.pinCode,
+        name: session.name,
         hasAIChat: session.hasAIChat,
         chatModel: session.chatModel,
         chatFirstQuestion: session.chatFirstQuestion,

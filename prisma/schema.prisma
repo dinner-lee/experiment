@@ -11,6 +11,7 @@ datasource db {
 model Session {
   id          String   @id @default(cuid())
   pinCode     String // 동일 PIN 아래 여러 세션(회차) 허용
+  name        String? // 세션(회차) 구분용 이름 (예: '1회차')
   createdAt   DateTime @default(now())
   isActive    Boolean  @default(true)
   hasAIChat   Boolean  @default(true) // AI 대화 기능 활성화 여부
