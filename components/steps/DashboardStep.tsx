@@ -177,7 +177,7 @@ export default function DashboardStep({
                 아직 공유된 의견이 없습니다. 학습 활동을 시작해 첫 의견을 공유해보세요.
               </p>
             ) : (
-              <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
+              <div className="grid gap-6 xl:grid-cols-[1fr_520px]">
                 {/* 멤버별 의견 카드 (2열) */}
                 <div className="grid content-start gap-4 sm:grid-cols-2">
                   {conversations.map((conv, i) => (
@@ -240,7 +240,7 @@ export default function DashboardStep({
                   ) : graphError ? (
                     <p className="py-12 text-center text-sm text-red-500">{graphError}</p>
                   ) : graph ? (
-                    <StaticConceptGraph users={graph.users} concepts={graph.concepts} height={380} />
+                    <StaticConceptGraph users={graph.users} concepts={graph.concepts} height={480} />
                   ) : null}
                 </div>
               </div>

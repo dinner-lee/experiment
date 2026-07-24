@@ -83,16 +83,16 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
         d3
           .forceLink<LayoutNode, any>(simLinks as any)
           .id((d: any) => d.id)
-          .distance((d: any) => ((d.target as LayoutNode).isShared ? 110 : 60))
+          .distance((d: any) => ((d.target as LayoutNode).isShared ? 85 : 50))
       )
-      .force('charge', d3.forceManyBody().strength(-220))
+      .force('charge', d3.forceManyBody().strength(-130))
       .force('center', d3.forceCenter(0, 0))
       .force(
         'collide',
         d3
           .forceCollide()
           .radius((d: any) =>
-            d.type === 'user' ? d.radius + 12 : (d.rectWidth || 60) / 2 + 6
+            d.type === 'user' ? d.radius + 8 : (d.rectWidth || 60) / 2 + 3
           )
           .iterations(6)
       )

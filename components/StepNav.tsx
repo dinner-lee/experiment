@@ -48,8 +48,11 @@ export default function StepNav({
           </span>
         </div>
 
-        {/* 스텝퍼 */}
-        <nav className="flex min-w-0 items-center" aria-label="학습 단계">
+        {/* 스텝퍼 (대시보드에서는 숨김) */}
+        <nav
+          className={`flex min-w-0 items-center ${currentStep < 1 ? 'invisible' : ''}`}
+          aria-label="학습 단계"
+        >
           {steps.map((step, i) => {
             const done = step.n < currentStep && step.n <= maxStep
             const current = step.n === currentStep

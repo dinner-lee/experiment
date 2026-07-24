@@ -316,7 +316,7 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
           ) : graphError ? (
             <p className="py-8 text-center text-sm text-red-500">{graphError}</p>
           ) : graph ? (
-            <StaticConceptGraph users={graph.users} concepts={graph.concepts} height={440} />
+            <StaticConceptGraph users={graph.users} concepts={graph.concepts} height={560} />
           ) : null}
         </div>
       </div>
