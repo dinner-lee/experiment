@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ChevronDown,
   MessagesSquare,
+  Plus,
   RefreshCw,
   Share2,
 } from 'lucide-react'
@@ -271,12 +272,40 @@ function SessionCard({
 export default function DashboardStep({
   userId,
   sessionId,
+  userName,
   onOpenCompare,
   onJoin,
 }: DashboardStepProps) {
   const [sessions, setSessions] = useState<DashboardSession[]>([])
   const [pinCode, setPinCode] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+
+  // 새 세션(회차) 만들기: 현재 세션 설정을 복제하고 팀의 입장 대상이 됨
+  const handleCreateSession = async () => {
+    const name = prompt(
+      '새 세션의 이름을 입력하세요. (예: 2회차)\n팀원들도 PIN으로 다시 입장하면 새 세션에 참여하게 됩니다.'
+    )
+    if (name === null) return
+    setCreating(true)
+    try {
+      const response = await fetch(`/api/session/${sessionId}/new-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, userName }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || '새 세션 생성에 실패했습니다')
+      // 새 세션의 참여자로 전환 후 이동
+      localStorage.setItem('userId', data.user.id)
+      localStorage.setItem('userName', data.user.name)
+      localStorage.setItem('sessionId', data.session.id)
+      window.location.href = `/session/${data.session.id}`
+    } catch (error: any) {
+      alert(`새 세션 생성에 실패했습니다: ${error.message || '알 수 없는 오류'}`)
+      setCreating(false)
+    }
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -313,7 +342,17 @@ export default function DashboardStep({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl text-ink">내 학습 공간</h1>
+      <div className="flex items-end justify-between">
+        <h1 className="text-2xl text-ink">내 학습 공간</h1>
+        <button
+          onClick={handleCreateSession}
+          disabled={creating}
+          className="flex items-center gap-1.5 rounded-xl border border-pine-300 bg-white px-4 py-2 text-sm font-semibold text-pine-800 transition-colors hover:bg-pine-50 disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" />
+          {creating ? '만드는 중…' : '새 세션 만들기'}
+        </button>
+      </div>
 
       {sessions.map((session) => (
         <SessionCard
