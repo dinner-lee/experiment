@@ -11,7 +11,7 @@ import {
   Share2,
 } from 'lucide-react'
 import StaticConceptGraph from '@/components/StaticConceptGraph'
-import { useConceptGraph } from '@/lib/useConceptGraph'
+import { colorBasisOf, useConceptGraph } from '@/lib/useConceptGraph'
 import { buildColorMap, USER_COLORS } from '@/lib/userColors'
 
 interface DashboardStepProps {
@@ -57,9 +57,16 @@ function SessionCard({
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
 
+  // 멤버 + 의견 작성자 합집합 기준 — 콘셉트 그래프 색상과 항상 일치
   const colorMap = useMemo(
-    () => buildColorMap(session.members.map((m) => m.name)),
-    [session.members]
+    () =>
+      buildColorMap(
+        colorBasisOf(
+          session.conversations,
+          session.members.map((m) => m.name)
+        )
+      ),
+    [session.members, session.conversations]
   )
   const colorOf = (name: string, idx: number) =>
     colorMap.get(name.trim()) || USER_COLORS[idx % USER_COLORS.length]

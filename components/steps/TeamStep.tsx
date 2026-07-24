@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { FileText, Users } from 'lucide-react'
 import { buildColorMap, USER_COLORS } from '@/lib/userColors'
+import { colorBasisOf } from '@/lib/useConceptGraph'
 
 interface TeamStepProps {
   userId: string
@@ -76,11 +77,14 @@ export default function TeamStep({ userId, sessionId, userName }: TeamStepProps)
     }
   }, [sessionId, userId])
 
-  // 색상은 세션 멤버 전체 기준 — 콘셉트 그래프·다른 화면의 아바타 색상과 일치
+  // 멤버 + 의견 작성자 합집합 기준 — 콘셉트 그래프·다른 화면의 아바타 색상과 일치
   const opinionColorMap = useMemo(
     () =>
       buildColorMap(
-        members.length > 0 ? members.map((m) => m.name) : opinions.map((o) => o.userName)
+        colorBasisOf(
+          opinions,
+          members.map((m) => m.name)
+        )
       ),
     [members, opinions]
   )

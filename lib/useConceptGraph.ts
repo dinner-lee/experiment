@@ -17,7 +17,7 @@ interface GraphData {
 }
 
 // 동시 요청 중복 방지 (대시보드·3단계가 동시에 마운트되어도 분석은 1회만)
-const inflight = new Map<string, Promise<GraphData>>()
+const inflight = new Map<string, Promise<GraphConcept[]>>()
 
 function signatureOf(conversations: GraphSourceConversation[]): string {
   return JSON.stringify(
@@ -27,10 +27,29 @@ function signatureOf(conversations: GraphSourceConversation[]): string {
   )
 }
 
-async function analyze(
-  conversations: GraphSourceConversation[],
+// 색상 배정 기준: 멤버 + 의견 작성자 이름의 합집합 (가나다순)
+// — 이동해 온 의견의 작성자처럼 멤버가 아닌 사람도 항상 고정 색을 갖는다
+export function colorBasisOf(
+  conversations: { userName: string }[],
   memberNames?: string[]
-): Promise<GraphData> {
+): string[] {
+  return [...(memberNames || []), ...conversations.map((c) => c.userName)]
+}
+
+function buildUsers(
+  conversations: GraphSourceConversation[],
+  basisNames: string[]
+): GraphUser[] {
+  const colorMap = buildColorMap(basisNames)
+  return conversations.map((conv, idx) => ({
+    id: conv.id,
+    name: conv.userName?.trim() || `대화 ${idx + 1}`,
+    summaryIndex: idx,
+    color: colorMap.get(conv.userName?.trim() || '') || USER_COLORS[idx % USER_COLORS.length],
+  }))
+}
+
+async function analyze(conversations: GraphSourceConversation[]): Promise<GraphConcept[]> {
   const response = await fetch('/api/admin/analyze-similarity', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -38,19 +57,7 @@ async function analyze(
   })
   const data = await response.json()
   if (!response.ok) throw new Error(data.error || '개념 분석에 실패했습니다')
-
-  // 색상은 세션 멤버 전체 기준으로 배정해 아바타 색상과 항상 일치시킨다
-  const colorMap = buildColorMap(
-    memberNames && memberNames.length > 0 ? memberNames : conversations.map((c) => c.userName)
-  )
-  const users: GraphUser[] = conversations.map((conv, idx) => ({
-    id: conv.id,
-    name: conv.userName?.trim() || `대화 ${idx + 1}`,
-    summaryIndex: idx,
-    color: colorMap.get(conv.userName?.trim() || '') || USER_COLORS[idx % USER_COLORS.length],
-  }))
-  const concepts: GraphConcept[] = data.conceptGraph?.nodes || []
-  return { users, concepts }
+  return data.conceptGraph?.nodes || []
 }
 
 // 공유된 의견들로부터 콘셉트 네트워크 그래프 데이터를 생성·캐시하는 훅
@@ -69,14 +76,16 @@ export function useConceptGraph(
     async (force = false) => {
       if (conversations.length < 2) return
       const sig = signatureOf(conversations)
+      // 색상은 캐시하지 않고 항상 현재 기준으로 다시 계산 (아바타 색상과 불일치 방지)
+      const basis = colorBasisOf(conversations, memberNames)
 
       if (!force) {
         try {
           const raw = sessionStorage.getItem(cacheKey)
           if (raw) {
             const cached = JSON.parse(raw)
-            if (cached.sig === sig) {
-              setData({ users: cached.users, concepts: cached.concepts })
+            if (cached.sig === sig && Array.isArray(cached.concepts)) {
+              setData({ users: buildUsers(conversations, basis), concepts: cached.concepts })
               return
             }
           }
@@ -91,14 +100,14 @@ export function useConceptGraph(
         const flightKey = `${sessionId}:${sig}`
         let promise = inflight.get(flightKey)
         if (!promise || force) {
-          promise = analyze(conversations, memberNames)
+          promise = analyze(conversations)
           inflight.set(flightKey, promise)
           promise.finally(() => inflight.delete(flightKey))
         }
-        const result = await promise
-        setData(result)
+        const concepts = await promise
+        setData({ users: buildUsers(conversations, basis), concepts })
         try {
-          sessionStorage.setItem(cacheKey, JSON.stringify({ sig, ...result }))
+          sessionStorage.setItem(cacheKey, JSON.stringify({ sig, concepts }))
         } catch {
           // 캐시 저장 실패는 무시
         }

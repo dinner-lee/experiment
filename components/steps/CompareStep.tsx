@@ -13,7 +13,7 @@ import {
   Users,
 } from 'lucide-react'
 import StaticConceptGraph from '@/components/StaticConceptGraph'
-import { useConceptGraph } from '@/lib/useConceptGraph'
+import { colorBasisOf, useConceptGraph } from '@/lib/useConceptGraph'
 import { buildColorMap, USER_COLORS } from '@/lib/userColors'
 
 interface CompareStepProps {
@@ -122,10 +122,10 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
     if (myConversation && !revising) setRevisedSummary(myConversation.summary)
   }, [myConversation, revising])
 
-  // 색상은 세션 멤버 전체 기준 — 아바타·콘셉트 그래프 색상이 항상 일치
+  // 멤버 + 의견 작성자 합집합 기준 — 아바타·콘셉트 그래프 색상이 항상 일치
   const memberNames = useMemo(() => members.map((m) => m.name), [members])
   const colorMap = useMemo(
-    () => buildColorMap(memberNames.length > 0 ? memberNames : conversations.map((c) => c.userName)),
+    () => buildColorMap(colorBasisOf(conversations, memberNames)),
     [memberNames, conversations]
   )
   const colorOf = (name: string, idx: number) =>
