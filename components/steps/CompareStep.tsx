@@ -221,11 +221,17 @@ export default function CompareStep({ userId, sessionId, userName, onNext }: Com
             아직 공유된 의견이 없습니다. 동료들이 공유하면 여기에 나타납니다.
           </p>
         ) : (
-          <div className="grid gap-4 p-6 sm:grid-cols-2" data-peer-content="">
+          <div className="grid gap-4 p-6 sm:grid-cols-2">
             {conversations.map((conv, i) => (
               <div
                 key={conv.id}
-                onClick={() => router.push(`/conversation/${conv.id}`)}
+                data-peer-content={!conv.isMine ? '' : undefined}
+                onClick={() => {
+                  // 텍스트를 드래그(선택) 중이면 상세로 이동하지 않음 (동료 의견 수집용)
+                  const selection = window.getSelection()
+                  if (selection && !selection.isCollapsed) return
+                  router.push(`/conversation/${conv.id}`)
+                }}
                 className="group cursor-pointer rounded-xl border border-zinc-200/70 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-pine-200 hover:shadow-md"
               >
                 <div className="mb-3 flex items-center gap-2.5">
