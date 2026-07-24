@@ -19,6 +19,7 @@ interface DashboardStepProps {
   sessionId: string
   userName: string
   onOpenCompare: () => void // 현재 세션의 3단계(동료와 비교하기)로 이동
+  onJoin: () => void // 현재 진행해야 하는 단계로 이동 (참여하기)
 }
 
 interface DashboardConversation {
@@ -46,10 +47,12 @@ function SessionCard({
   session,
   pinCode,
   onOpenCompare,
+  onJoin,
 }: {
   session: DashboardSession
   pinCode: string | null
   onOpenCompare?: () => void // 현재 참여 중인 세션에만 제공
+  onJoin?: () => void // 현재 참여 중인 세션에만 제공
 }) {
   const router = useRouter()
   const [expanded, setExpanded] = useState(false)
@@ -135,6 +138,17 @@ function SessionCard({
         </span>
 
         <div className="ml-auto flex items-center gap-2">
+          {onJoin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onJoin()
+              }}
+              className="flex items-center gap-1.5 rounded-xl bg-pine-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-pine-600"
+            >
+              참여하기
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation()
@@ -233,7 +247,12 @@ function SessionCard({
   )
 }
 
-export default function DashboardStep({ userId, sessionId, onOpenCompare }: DashboardStepProps) {
+export default function DashboardStep({
+  userId,
+  sessionId,
+  onOpenCompare,
+  onJoin,
+}: DashboardStepProps) {
   const [sessions, setSessions] = useState<DashboardSession[]>([])
   const [pinCode, setPinCode] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -281,6 +300,7 @@ export default function DashboardStep({ userId, sessionId, onOpenCompare }: Dash
           session={session}
           pinCode={pinCode}
           onOpenCompare={session.isCurrent ? onOpenCompare : undefined}
+          onJoin={session.isCurrent ? onJoin : undefined}
         />
       ))}
     </div>
