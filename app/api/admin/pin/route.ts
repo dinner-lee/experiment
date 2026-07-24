@@ -119,13 +119,22 @@ export async function GET() {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
+    const sessionId = searchParams.get('sessionId')
     const pinCode = searchParams.get('pinCode')
 
-    if (!pinCode) {
-      return NextResponse.json({ error: 'PIN code is required' }, { status: 400 })
+    if (sessionId) {
+      await prisma.session.update({
+        where: { id: sessionId },
+        data: { isActive: false },
+      })
+      return NextResponse.json({ success: true })
     }
 
-    await prisma.session.update({
+    if (!pinCode) {
+      return NextResponse.json({ error: 'sessionId or pinCode is required' }, { status: 400 })
+    }
+
+    await prisma.session.updateMany({
       where: { pinCode },
       data: { isActive: false },
     })

@@ -67,6 +67,9 @@ export default function AdminPage() {
   const [showSharedAnswers, setShowSharedAnswers] = useState(true) // 답변 공유하기 탭 표시 여부 (AI 비활성화 시)
   const [sessions, setSessions] = useState<Session[]>([])
   const [selectedPin, setSelectedPin] = useState<string | null>(null)
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  const [moveTargetSessionId, setMoveTargetSessionId] = useState('')
+  const [isMoving, setIsMoving] = useState(false)
   // 세션별 AI 대화 설정 (모델·첫 질문·시스템 프롬프트)
   const [sessionHasAIChat, setSessionHasAIChat] = useState(true)
   const [showAISettings, setShowAISettings] = useState(false)
@@ -253,11 +256,11 @@ export default function AdminPage() {
     }
   }
 
-  const deletePin = async (pin: string) => {
-    if (!confirm(`PIN ${pin}을(를) 삭제하시겠습니까?`)) return
+  const deletePin = async (pin: string, sessionIdToDelete: string) => {
+    if (!confirm(`PIN ${pin} 세션을 삭제하시겠습니까?`)) return
 
     try {
-      const response = await fetch(`/api/admin/pin?pinCode=${pin}`, {
+      const response = await fetch(`/api/admin/pin?sessionId=${sessionIdToDelete}`, {
         method: 'DELETE',
       })
 
@@ -266,8 +269,9 @@ export default function AdminPage() {
       }
 
       fetchSessions()
-      if (selectedPin === pin) {
+      if (selectedSessionId === sessionIdToDelete) {
         setSelectedPin(null)
+        setSelectedSessionId(null)
         setConversations([])
       }
     } catch (error) {
@@ -275,17 +279,18 @@ export default function AdminPage() {
     }
   }
 
-  const fetchSessionInfo = async (pin: string) => {
+  const fetchSessionInfo = async (pin: string, sessionIdToFetch?: string) => {
     setSelectedPin(pin)
     try {
-      // 모든 공유된 대화를 가져와서 PIN 번호로 필터링 (SharedLogsTab과 동일한 방식)
-      // 먼저 해당 PIN의 세션 ID를 찾기
-      const sessionResponse = await fetch(`/api/admin/sessions/${pin}`)
+      // 세션 ID가 주어지면 해당 세션을, 아니면 PIN의 최신 세션을 조회
+      const sessionResponse = await fetch(`/api/admin/sessions/${sessionIdToFetch || pin}`)
       if (!sessionResponse.ok) {
         throw new Error('Failed to fetch session')
       }
       const sessionData = await sessionResponse.json()
       const sessionId = sessionData.session.id
+      setSelectedSessionId(sessionId)
+      setMoveTargetSessionId('')
 
       // AI 대화 설정 상태 반영 (미설정 시 실제 기본 프롬프트 전문을 표시)
       setSessionHasAIChat(sessionData.session.hasAIChat !== false)
@@ -485,14 +490,14 @@ export default function AdminPage() {
     }
   }
 
-  const downloadLogs = async (pin: string) => {
+  const downloadLogs = async (idOrPin: string, pinLabel?: string) => {
     try {
-      const response = await fetch(`/api/admin/logs/${pin}?format=csv`)
+      const response = await fetch(`/api/admin/logs/${idOrPin}?format=csv`)
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `session-${pin}-logs.csv`
+      a.download = `session-${pinLabel || idOrPin}-logs.csv`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -679,25 +684,25 @@ export default function AdminPage() {
                     <td className="px-4 py-3 text-sm">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => fetchSessionInfo(session.pinCode)}
+                          onClick={() => fetchSessionInfo(session.pinCode, session.id)}
                           className="text-blue-600 hover:text-blue-800 dark:text-blue-400"
                         >
                           상세
                         </button>
                         <button
-                          onClick={() => fetchUserLogs(session.pinCode)}
+                          onClick={() => fetchUserLogs(session.id)}
                           className="text-purple-600 hover:text-purple-800 dark:text-purple-400"
                         >
                           로그
                         </button>
                         <button
-                          onClick={() => downloadLogs(session.pinCode)}
+                          onClick={() => downloadLogs(session.id, session.pinCode)}
                           className="text-green-600 hover:text-green-800 dark:text-green-400"
                         >
                           CSV
                         </button>
                         <button
-                          onClick={() => deletePin(session.pinCode)}
+                          onClick={() => deletePin(session.pinCode, session.id)}
                           className="text-red-600 hover:text-red-800 dark:text-red-400"
                         >
                           삭제
@@ -818,8 +823,10 @@ export default function AdminPage() {
                               ? ''
                               : aiSettings.chatSystemPrompt,
                         }
-                        const response = await fetch(`/api/admin/sessions/${selectedPin}`, {
-                          method: 'PATCH',
+                        const response = await fetch(
+                          `/api/admin/sessions/${selectedSessionId || selectedPin}`,
+                          {
+                            method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify(payload),
                         })
@@ -871,6 +878,66 @@ export default function AdminPage() {
                         전체 선택 ({selectedConversations.size}/{conversations.length})
                       </span>
                     </label>
+                    {/* 선택한 대화를 같은 PIN의 다른 세션으로 이동 */}
+                    {sessions.filter(
+                      (s) => s.pinCode === selectedPin && s.id !== selectedSessionId
+                    ).length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={moveTargetSessionId}
+                          onChange={(e) => setMoveTargetSessionId(e.target.value)}
+                          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm text-zinc-700 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                        >
+                          <option value="">이동할 세션 선택…</option>
+                          {sessions
+                            .filter((s) => s.pinCode === selectedPin && s.id !== selectedSessionId)
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {format(new Date(s.createdAt), 'MM/dd HH:mm')} 개설 세션
+                              </option>
+                            ))}
+                        </select>
+                        <button
+                          onClick={async () => {
+                            if (!moveTargetSessionId || selectedConversations.size === 0) return
+                            if (
+                              !confirm(
+                                `선택한 대화 ${selectedConversations.size}개를 해당 세션으로 이동할까요?`
+                              )
+                            )
+                              return
+                            setIsMoving(true)
+                            try {
+                              const response = await fetch('/api/admin/conversations/move', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  conversationIds: Array.from(selectedConversations),
+                                  targetSessionId: moveTargetSessionId,
+                                }),
+                              })
+                              const data = await response.json()
+                              if (!response.ok) throw new Error(data.error || '이동에 실패했습니다')
+                              alert(`${data.moved}개 대화를 이동했습니다.`)
+                              setSelectedConversations(new Set())
+                              if (selectedPin && selectedSessionId)
+                                fetchSessionInfo(selectedPin, selectedSessionId)
+                              fetchSessions()
+                            } catch (error: any) {
+                              alert(`이동에 실패했습니다: ${error.message || '알 수 없는 오류'}`)
+                            } finally {
+                              setIsMoving(false)
+                            }
+                          }}
+                          disabled={
+                            isMoving || !moveTargetSessionId || selectedConversations.size === 0
+                          }
+                          className="rounded-md bg-zinc-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:bg-zinc-400"
+                        >
+                          {isMoving ? '이동 중…' : '선택 대화 이동'}
+                        </button>
+                      </div>
+                    )}
                     <button
                       onClick={handleAnalyze}
                       disabled={selectedConversations.size < 2 || isAnalyzing}

@@ -141,7 +141,6 @@ export default function SessionPage() {
               userId={userId}
               sessionId={sessionId}
               userName={userName}
-              onStart={() => goToStep(Math.max(1, Math.min(maxStep, STEPS.length)))}
               onOpenCompare={() => goToStep(3, true)}
             />
           )}

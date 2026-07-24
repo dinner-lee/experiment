@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+// 파라미터를 세션 ID 우선으로 해석하고, 아니면 PIN으로 최신 세션을 찾는다
+// (동일 PIN 아래 여러 세션 허용에 따른 겸용 처리)
+async function resolveSessionId(param: string): Promise<string | null> {
+  const byId = await prisma.session.findUnique({ where: { id: param }, select: { id: true } })
+  if (byId) return byId.id
+  const byPin = await prisma.session.findFirst({
+    where: { pinCode: param },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true },
+  })
+  return byPin?.id ?? null
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ pinCode: string }> | { pinCode: string } }
@@ -20,9 +33,14 @@ export async function GET(
       return NextResponse.json({ error: 'PIN code is required' }, { status: 400 })
     }
 
+    const targetId = await resolveSessionId(actualPinCode)
+    if (!targetId) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+    }
+
     // 대화 원문은 별도 목록 API에서 조회하므로 여기서는 세션 기본 정보만 반환 (페이로드 최소화)
     const session = await prisma.session.findUnique({
-      where: { pinCode: actualPinCode },
+      where: { id: targetId },
       select: {
         id: true,
         pinCode: true,
@@ -83,12 +101,17 @@ export async function PATCH(
 
     const { chatModel, chatFirstQuestion, chatSystemPrompt } = await request.json()
 
+    const targetId = await resolveSessionId(pinCode)
+    if (!targetId) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+    }
+
     // 빈 문자열은 null로 저장 → 기본값 사용
     const normalize = (v: unknown) =>
       typeof v === 'string' && v.trim() !== '' ? v.trim() : null
 
     const session = await prisma.session.update({
-      where: { pinCode },
+      where: { id: targetId },
       data: {
         chatModel: normalize(chatModel),
         chatFirstQuestion: normalize(chatFirstQuestion),

@@ -23,26 +23,39 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const format = searchParams.get('format') || 'json'
 
-    const session = await prisma.session.findUnique({
-      where: { pinCode: actualPinCode },
-      include: {
-        users: {
-          include: {
-            conversations: true,
-            userLogs: true,
-            viewLogs: {
-              include: {
-                conversation: {
-                  include: {
-                    user: true,
-                  },
+    // 세션 ID 우선, 아니면 PIN으로 최신 세션 조회 (동일 PIN 다중 세션 대응)
+    const logsInclude = {
+      users: {
+        include: {
+          conversations: true,
+          userLogs: true,
+          viewLogs: {
+            include: {
+              conversation: {
+                include: {
+                  user: true,
                 },
               },
             },
           },
         },
       },
+    } as const
+
+    const byId = await prisma.session.findUnique({
+      where: { id: actualPinCode },
+      select: { id: true },
     })
+    const session = byId
+      ? await prisma.session.findUnique({
+          where: { id: byId.id },
+          include: logsInclude,
+        })
+      : await prisma.session.findFirst({
+          where: { pinCode: actualPinCode },
+          orderBy: { createdAt: 'desc' },
+          include: logsInclude,
+        })
 
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })

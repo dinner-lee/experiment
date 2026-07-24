@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, LogOut, Puzzle } from 'lucide-react'
+import { Check, LayoutGrid, LogOut, Puzzle } from 'lucide-react'
 
 export interface StepDef {
   n: number
@@ -97,6 +97,20 @@ export default function StepNav({
 
         {/* 사용자 영역 */}
         <div className="flex shrink-0 items-center gap-3">
+          {onLogoClick && (
+            <button
+              type="button"
+              onClick={onLogoClick}
+              className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                currentStep < 1
+                  ? 'bg-pine-100 text-pine-800'
+                  : 'border border-zinc-300 bg-white text-zinc-600 hover:border-zinc-400 hover:text-ink'
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              대시보드
+            </button>
+          )}
           <span className="hidden text-sm font-semibold text-zinc-700 sm:block">
             {userName}
           </span>

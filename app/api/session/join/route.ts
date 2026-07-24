@@ -12,8 +12,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const session = await prisma.session.findUnique({
+    // 동일 PIN에 여러 세션(회차)이 있을 수 있으므로 가장 최근의 활성 세션에 입장
+    const session = await prisma.session.findFirst({
       where: { pinCode, isActive: true },
+      orderBy: { createdAt: 'desc' },
       include: { users: true },
     })
 
