@@ -55,8 +55,8 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
       const activeUsers = users.filter((u) => concept.summaryIndices.includes(u.summaryIndex))
       if (activeUsers.length === 0) return
       const isShared = activeUsers.length > 1
-      const capRadius = isShared ? 16 : 13
-      const estimatedWidth = concept.label.length * 11 + 18
+      const capRadius = isShared ? 18 : 15
+      const estimatedWidth = concept.label.length * 13 + 22
       nodes.push({
         id: `concept-${concept.id}`,
         type: 'concept',
@@ -87,6 +87,9 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
       )
       .force('charge', d3.forceManyBody().strength(-130))
       .force('center', d3.forceCenter(0, 0))
+      // 연결되지 않은 덩어리들이 흩어지지 않도록 중심으로 끌어당김 (컴팩트한 배치)
+      .force('x', d3.forceX(0).strength(0.1))
+      .force('y', d3.forceY(0).strength(0.14))
       .force(
         'collide',
         d3
@@ -192,7 +195,7 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
               <text
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={n.isShared ? 12 : 11}
+                fontSize={n.isShared ? 14 : 13}
                 fontWeight={n.isShared ? 600 : 400}
                 fill={n.isShared ? '#1e40af' : '#52525b'}
               >
@@ -217,7 +220,7 @@ export default function StaticConceptGraph({ users, concepts, height = 420 }: St
             <text
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize={n.label.length > 2 ? 11 : 13}
+              fontSize={n.label.length > 2 ? 13 : 15}
               fontWeight={700}
               fill="#18181b"
             >
