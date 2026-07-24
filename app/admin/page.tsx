@@ -25,6 +25,7 @@ interface Session {
   pinCode: string
   id: string
   name: string | null
+  isJoinTarget: boolean
   createdAt: string
   userCount: number
   conversationCount: number
@@ -707,6 +708,11 @@ export default function AdminPage() {
                           {session.name}
                         </span>
                       )}
+                      {session.isJoinTarget && (
+                        <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/40 dark:text-green-300">
+                          입장 중
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">
                       {format(new Date(session.createdAt), 'yyyy-MM-dd HH:mm')}
@@ -719,6 +725,36 @@ export default function AdminPage() {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex gap-2">
+                        {!session.isJoinTarget && (
+                          <button
+                            onClick={async () => {
+                              if (
+                                !confirm(
+                                  `PIN ${session.pinCode} 입장 시 이 세션${session.name ? ` (${session.name})` : ''}으로 연결되도록 지정할까요?`
+                                )
+                              )
+                                return
+                              try {
+                                const response = await fetch(`/api/admin/sessions/${session.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ setJoinTarget: true }),
+                                })
+                                if (!response.ok) {
+                                  const data = await response.json().catch(() => ({}))
+                                  throw new Error(data.error || '지정에 실패했습니다')
+                                }
+                                fetchSessions()
+                              } catch (error: any) {
+                                alert(`입장 세션 지정에 실패했습니다: ${error.message || '알 수 없는 오류'}`)
+                              }
+                            }}
+                            className="text-emerald-600 hover:text-emerald-800 dark:text-emerald-400"
+                            title="학습자가 이 PIN으로 입장할 때 연결되는 세션으로 지정"
+                          >
+                            입장 지정
+                          </button>
+                        )}
                         <button
                           onClick={() => fetchSessionInfo(session.pinCode, session.id)}
                           className="text-blue-600 hover:text-blue-800 dark:text-blue-400"

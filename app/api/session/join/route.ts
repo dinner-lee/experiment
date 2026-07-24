@@ -12,12 +12,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 동일 PIN에 여러 세션(회차)이 있을 수 있으므로 가장 최근의 활성 세션에 입장
-    const session = await prisma.session.findFirst({
-      where: { pinCode, isActive: true },
-      orderBy: { createdAt: 'desc' },
-      include: { users: true },
-    })
+    // 입장 대상으로 지정된 세션 우선, 없으면 가장 최근의 활성 세션에 입장
+    const session =
+      (await prisma.session.findFirst({
+        where: { pinCode, isActive: true, isJoinTarget: true },
+        include: { users: true },
+      })) ??
+      (await prisma.session.findFirst({
+        where: { pinCode, isActive: true },
+        orderBy: { createdAt: 'desc' },
+        include: { users: true },
+      }))
 
     if (!session) {
       return NextResponse.json({ error: 'Invalid PIN code' }, { status: 404 })

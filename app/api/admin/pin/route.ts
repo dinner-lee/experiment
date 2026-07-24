@@ -28,11 +28,15 @@ export async function POST(request: NextRequest) {
       if (!source) {
         return NextResponse.json({ error: '복제할 세션을 찾을 수 없습니다' }, { status: 404 })
       }
+      const siblingCount = await prisma.session.count({
+        where: { pinCode: source.pinCode, isActive: true },
+      })
       const session = await prisma.session.create({
         data: {
           pinCode: source.pinCode,
           name: typeof name === 'string' && name.trim() !== '' ? name.trim() : null,
           isActive: true,
+          isJoinTarget: siblingCount === 0, // 첫 세션이면 자동으로 입장 대상
           hasAIChat: source.hasAIChat,
           question: source.question,
           showSharedAnswers: source.showSharedAnswers,
@@ -52,11 +56,15 @@ export async function POST(request: NextRequest) {
     // 데이터베이스 연결 테스트
     await prisma.$connect()
 
+    const existingCount = await prisma.session.count({
+      where: { pinCode, isActive: true },
+    })
     const session = await prisma.session.create({
       data: {
         pinCode,
         name: typeof name === 'string' && name.trim() !== '' ? name.trim() : null,
         isActive: true,
+        isJoinTarget: existingCount === 0, // 첫 세션이면 자동으로 입장 대상
         hasAIChat: hasAIChat !== undefined ? hasAIChat : true, // 기본값은 true
         question: hasAIChat === false ? (question ? question.trimEnd() : null) : null, // AI 기능 비활성화 시에만 질문 저장 (줄바꿈 보존, 뒤 공백만 제거)
         showSharedAnswers: hasAIChat === false ? (showSharedAnswers !== undefined ? showSharedAnswers : true) : true, // AI 비활성화 시에만 설정값 사용, 기본값은 true
@@ -107,6 +115,7 @@ export async function GET() {
         id: true,
         pinCode: true,
         name: true,
+        isJoinTarget: true,
         createdAt: true,
         _count: {
           select: {
@@ -122,6 +131,7 @@ export async function GET() {
       pinCode: session.pinCode,
       id: session.id,
       name: session.name,
+      isJoinTarget: session.isJoinTarget,
       createdAt: session.createdAt,
       userCount: session._count.users,
       conversationCount: session._count.conversations,

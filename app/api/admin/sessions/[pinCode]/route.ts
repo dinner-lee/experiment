@@ -101,11 +101,33 @@ export async function PATCH(
       return NextResponse.json({ error: 'PIN code is required' }, { status: 400 })
     }
 
-    const { chatModel, chatFirstQuestion, chatSystemPrompt } = await request.json()
+    const { chatModel, chatFirstQuestion, chatSystemPrompt, setJoinTarget } = await request.json()
 
     const targetId = await resolveSessionId(pinCode)
     if (!targetId) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+    }
+
+    // 입장 세션 지정: 같은 PIN의 다른 세션 지정을 해제하고 이 세션만 입장 대상으로
+    if (setJoinTarget) {
+      const target = await prisma.session.findUnique({
+        where: { id: targetId },
+        select: { pinCode: true },
+      })
+      if (!target) {
+        return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+      }
+      await prisma.$transaction([
+        prisma.session.updateMany({
+          where: { pinCode: target.pinCode },
+          data: { isJoinTarget: false },
+        }),
+        prisma.session.update({
+          where: { id: targetId },
+          data: { isJoinTarget: true, isActive: true },
+        }),
+      ])
+      return NextResponse.json({ success: true, joinTargetSessionId: targetId })
     }
 
     // 빈 문자열은 null로 저장 → 기본값 사용
